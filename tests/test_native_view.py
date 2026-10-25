@@ -1,4 +1,5 @@
 """The native view gets its own VS Code profile and cannot silently change sessions."""
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -11,6 +12,7 @@ from unittest import mock
 SCRIPTS = Path(__file__).resolve().parents[1] / "skills/claudex-bridge/scripts"
 sys.path.insert(0, str(SCRIPTS))
 import native_view
+import claude_vscode_history
 
 
 @unittest.skipIf(sys.platform == "win32", "The executable wrapper launcher currently targets Unix")
@@ -111,6 +113,68 @@ class NativeViewTests(unittest.TestCase):
             with self.assertRaisesRegex(native_view.ViewError, "timed out"):
                 native_view.open_view(self.directory)
         run.assert_called_once()
+
+    def replay_binding(self):
+        data = json.loads(self.binding.read_text())
+        data["history"] = "replay"
+        del data["start_offset"]
+        self.binding.write_text(json.dumps(data))
+
+    def test_single_reader_patch_is_local_and_checked_again_before_launch(self):
+        self.replay_binding()
+        source = ('const nativeResponse = {' + claude_vscode_history.ANCHOR + '};').encode()
+        original = self.extension / "extension.js"
+        original.write_bytes(source)
+        webview_source = (claude_vscode_history.WEBVIEW_READ_ANCHOR +
+                          claude_vscode_history.WEBVIEW_COMMIT_ANCHOR).encode()
+        webview = self.extension / "webview"
+        webview.mkdir()
+        (webview / "index.js").write_bytes(webview_source)
+        (webview / "index.css").write_text("fixture native style")
+        with mock.patch.object(claude_vscode_history, "SOURCE_SHA256", hashlib.sha256(source).hexdigest()), \
+                mock.patch.object(claude_vscode_history, "WEBVIEW_SOURCE_SHA256", hashlib.sha256(webview_source).hexdigest()):
+            result = self.prepare()
+        self.assertEqual(result["history_transport"], "single_stream")
+        self.assertEqual(original.read_bytes(), source)
+        patched = self.directory / "extensions" / self.extension.name / "extension.js"
+        self.assertFalse(patched.is_symlink())
+        self.assertNotEqual(patched.read_bytes(), source)
+        patched_webview = patched.parent / "webview/index.js"
+        self.assertFalse(patched_webview.parent.is_symlink())
+        self.assertFalse(patched_webview.is_symlink())
+        self.assertNotEqual(patched_webview.read_bytes(), webview_source)
+        self.assertEqual((webview / "index.js").read_bytes(), webview_source)
+        self.assertTrue((patched.parent / "webview/index.css").is_symlink())
+        native_view.load(self.directory)
+        patched_webview.write_bytes(webview_source)
+        with mock.patch.object(native_view.subprocess, "run") as run:
+            with self.assertRaisesRegex(native_view.ViewError, "extension changed"):
+                native_view.open_view(self.directory)
+        run.assert_not_called()
+
+    def test_unknown_extension_build_never_creates_replay_profile(self):
+        self.replay_binding()
+        (self.extension / "extension.js").write_text("unrecognized build")
+        with self.assertRaisesRegex(native_view.ViewError, "Unsupported Claude extension source"):
+            self.prepare()
+        self.assertFalse(self.directory.exists())
+
+    @unittest.skipUnless(native_view.shutil.which("node"), "Node is needed to exercise the native JS response")
+    def test_patched_native_response_keeps_diffs_and_other_session_history(self):
+        source = ('function response($){const z=[{uuid:"history"}],V=[],G=[{path:"file.py"}];'
+                  'return {' + claude_vscode_history.ANCHOR + '};}').encode()
+        with mock.patch.object(claude_vscode_history, "SOURCE_SHA256", hashlib.sha256(source).hexdigest()):
+            patched = claude_vscode_history.patch(source, self.SESSION).decode()
+        script = patched + '\nconst context={stampReplayedFrames:x=>x,isSessionLiveInOtherSurface:()=>true};'
+        script += '\nconsole.log(JSON.stringify(['
+        script += 'response.call(context,' + json.dumps(self.SESSION) + '),'
+        script += 'response.call(context,"another-session")]));'
+        result = subprocess.run([native_view.shutil.which("node"), "-e", script], capture_output=True, text=True, check=True)
+        bound, other = json.loads(result.stdout)
+        self.assertEqual(bound["messages"], [])
+        self.assertEqual(bound["sessionDiffs"], [{"path": "file.py"}])
+        self.assertTrue(bound["liveInOtherSurface"])
+        self.assertEqual(other["messages"], [{"uuid": "history"}])
 
 
 if __name__ == "__main__":

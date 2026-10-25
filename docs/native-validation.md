@@ -10,8 +10,8 @@ not included in the repository.
 | Codex Desktop → native TUI | Real history and new assistant/tool output rendered through the read-only gateway | Version-pinned Linux adapter; forms stay with the owner |
 | Codex Desktop + TUI + official VS Code | The same existing conversation was observed in all three native surfaces at the same time | Does not establish the complete bridge workflow |
 | Claude native TUI | One real temporary-project request used the existing provider and failed with HTTP 403, insufficient quota | No implementation, tests or revision executed |
-| Claude official VS Code follower | Same temporary session, original quota-error text and follower attachment notice visibly rendered | Successful live model output and active-turn history handoff unverified |
-| Claude Desktop follower | No usable native UI path verified | Cached tail gate off; renderer navigation and producer compatibility unresolved |
+| Claude official VS Code follower | Same temporary session and quota-error text visibly rendered, including with isolated replay patches; reader termination displayed a native error | Successful live output and native channel restart unverified; deduplication checked offline |
+| Claude Desktop follower | Actual version-pinned copy prepared; offline API/reader/listener tests passed | Native quit reported a running background command; quit cancelled, copy not launched; UI/history handoff unverified |
 | Bidirectional acceptance loop | Not run | Native Claude path and successful provider calls required |
 | Windows/macOS | Not run | Real machines and platform adapters required |
 
@@ -67,29 +67,47 @@ This proves native history rendering and attachment initialization. Since quota
 prevented a successful model turn, it does **not** prove live successful output,
 automatic revision, completion handling or the final acceptance loop.
 
-The existing Claude Desktop was running unrelated user work and was not restarted
-or patched. Its native tail-rendering route remains unresolved. The version
-difference also prevents silently using the IDE adapter with the Desktop producer.
-The current implementation cannot solve that gap by changing Skill text.
+The isolated replay path was then checked with the native host-history response
+patch and native webview reconnect patch. The actual panel again displayed each
+original row once. Stopping only its Python follower produced the native process
+terminated error while preserving history. No new prompt or model call occurred.
+Both temporary VS Code profiles/processes and screenshots were cleaned up.
+
+The Desktop preparation command created a copy from the actual installed build,
+with a sealed binding to this same temporary session. The opener verified its
+component hashes and refused while the original client was running. After user
+authorization to quit idle sessions, the live registry reported three interactive
+sessions idle. However, Desktop's own quit confirmation reported a background
+command in one session and warned that quitting would stop it. Quit was cancelled.
+The original client remained running; the copy was not launched and no original
+app bundle, provider configuration or feature gate was changed. Temporary
+screenshots were removed. The prepared copy remains local for the later check.
+
+The adapter uses a TUI transcript producer pinned to 2.1.295; Desktop's own
+2.1.308 producer is still not accepted by the VS Code follower. Listener registration
+acknowledgments do not yet establish native transcript hydration. The current
+implementation cannot solve these gaps by changing Skill text.
 
 ## Next executable checks
 
-1. Establish a supported native Claude Desktop follower route for the existing
-   provider, including version negotiation and exact history handoff.
+1. When the original Desktop has no background work to preserve, launch the
+   prepared native follower and verify actual rendering, exact history handoff,
+   reconnects and single-owner behavior.
 2. Once that provider can execute requests, resume the saved temporary Claude
    session, bind the native viewers, then verify real tool activity and completion.
 3. Implement both executor directions on the validated owner adapters; exercise
    deliberate rejection, same-session revision, user feedback and interrupted
    monitoring without duplicate execution.
-4. Validate the full workflow on each target OS before publication or installation
-   as the replacement for `codex-worker`.
+4. Enable the Linux development entrypoint only after complete local acceptance;
+   validate Windows/macOS before publication. Keep the installed `codex-worker`
+   until the replacement's full local behavior is verified.
 
 Offline regressions remain separate from these observations. The optional native
 TUI test consumes fixtures and makes no model calls. `doctor` remains read-only
-and reports `release_ready: false`; passing component checks does not open the
-release gate.
+and reports `runtime_ready: false` and `release_ready: false`; passing component
+checks does not open either gate. See [receipt semantics](acceptance-evidence.md).
 
-The final combined run passed **77 tests**, including the real TUI consuming
+The combined run after these changes passed **157 tests**, including the real TUI consuming
 offline protocol fixtures:
 
 ```sh
@@ -99,3 +117,7 @@ CLAUDEX_TEST_NATIVE_TUI=/opt/codex-desktop/resources/codex \
 
 Without that explicit environment variable, the native-binary fixture test is
 skipped. Skill validation and `git diff --check` also passed.
+
+New checks cover the Desktop core, loader, source subprocess and prepared ASAR;
+the isolated VS Code history/reconnect patches; and local-runtime versus release
+evidence. No complete native acceptance receipt was created.

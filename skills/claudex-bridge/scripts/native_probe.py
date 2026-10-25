@@ -1,5 +1,7 @@
 """Read-only native client observations. Detection is never live validation."""
 import gzip
+import datetime
+import hashlib
 import io
 import json
 import os
@@ -9,6 +11,7 @@ import stat
 import struct
 import sys
 import time
+import uuid
 import zlib
 
 
@@ -24,6 +27,25 @@ IPC_VERSIONS = {
 FCACHE_MAGIC = bytes.fromhex("434c4602009ab7e2")
 TAIL_GATE = "1985233154"
 MAX_READ = 64 * 1024 * 1024
+MAX_RECEIPT = 1024 * 1024
+MAX_EVIDENCE = 8 * 1024 * 1024
+
+# These describe implemented, reviewed capabilities, not user configuration.
+# A local acceptance receipt cannot enable missing implementation. Change a gate
+# only with its implementation and acceptance; the code fingerprint then changes.
+IMPLEMENTATION_CAPABILITIES = {
+    "claude_native_follow": False,
+    "native_workflow_acceptance": False,
+    "bidirectional_acceptance": False,
+}
+ACCEPTANCE_DIRECTIONS = ("claude_to_codex", "codex_to_claude")
+ACCEPTANCE_SCENARIOS = (
+    "single_executor_and_native_views", "same_session_revision",
+    "initiator_review_and_report", "feedback_preserves_context",
+    "recovery_failure_and_stop_safety", "roles_subagents_and_existing_changes",
+    "configuration_preserved",
+)
+NATIVE_COMPONENTS = ("codex_desktop", "claude_desktop", "codex_vscode", "claude_vscode")
 
 
 class Asar:
@@ -197,6 +219,135 @@ def socket_exists(path):
         return False
 
 
+def host_fingerprint(home, platform, codex_home):
+    """Bind local validation without exposing machine IDs or user paths."""
+    if platform != "linux":
+        return None
+    try:
+        machine_id = Path("/etc/machine-id").read_text(encoding="ascii").strip()
+        if not re.fullmatch(r"[0-9a-fA-F]{32}", machine_id):
+            return None
+        identity = [platform, machine_id.lower(), os.getuid(), str(home.resolve()), str(codex_home.resolve())]
+        return hashlib.sha256(json.dumps(identity, separators=(",", ":")).encode()).hexdigest()
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
+def implementation_fingerprint():
+    """Invalidate acceptance after executable bridge code or skill changes."""
+    directory = Path(__file__).resolve().parent
+    paths = sorted(path for path in directory.iterdir() if path.suffix in (".py", ".js", ".json") and path.is_file())
+    skill = directory.parent / "SKILL.md"
+    if skill.is_file():
+        paths.append(skill)
+    digest = hashlib.sha256()
+    try:
+        for path in paths:
+            raw = path.read_bytes()
+            if len(raw) > MAX_READ:
+                return None
+            digest.update(str(path.relative_to(directory.parent)).encode() + b"\0")
+            digest.update(hashlib.sha256(raw).digest())
+        return digest.hexdigest() if paths else None
+    except (OSError, ValueError):
+        return None
+
+
+def acceptance_path(home, env):
+    """Read beside the retained worker state; never create/migrate its directory."""
+    if env.get("CLAUDEX_ACCEPTANCE_EVIDENCE"):
+        return Path(env["CLAUDEX_ACCEPTANCE_EVIDENCE"]).expanduser()
+    base = Path(env.get("XDG_STATE_HOME", str(home / ".local/state")))
+    root = Path(env.get("CODEX_WORKER_STATE_DIR", str(base / "claude-codex-worker"))).expanduser()
+    return root / "native-acceptance.json"
+
+
+def read_evidence_file(path, limit):
+    """Bound reads and reject symlinks/FIFOs without printing file contents."""
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_size > limit:
+        raise ValueError("Evidence must be a bounded regular file")
+    if hasattr(os, "getuid") and (info.st_uid != os.getuid() or info.st_mode & 0o022):
+        raise ValueError("Evidence must be owned by this user and not writable by others")
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    with os.fdopen(os.open(str(path), flags), "rb") as stream:
+        opened = os.fstat(stream.fileno())
+        if (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino) or not stat.S_ISREG(opened.st_mode):
+            raise ValueError("Evidence changed while opening")
+        raw = stream.read(limit + 1)
+    if not raw or len(raw) > limit:
+        raise ValueError("Evidence is empty or exceeds its size limit")
+    return raw
+
+
+def inspect_acceptance(path, binding, timestamp=None):
+    """Validate a local acceptance receipt, not a `passed=true` feature flag.
+
+    Schema 1: kind="native_workflow_acceptance", binding equal to the reported
+    installation binding, canonical run_id, verified_at with a timezone, and
+    directions[direction]={sessions:{claude:UUID,codex:UUID}, scenarios:{name:
+    {result:"passed",artifact:"relative/file",sha256:"64 lowercase hex"}}}.
+    Every required scenario in both directions needs a matching local artifact.
+    This validates provenance/integrity; it does not rerun or semantically judge
+    the recorded acceptance. Receipt creation is deliberately outside doctor.
+    """
+    result = {"verified": False, "state": "missing", "checked_scenarios": 0,
+              "reason": "No matching local full-workflow acceptance receipt is available."}
+    if not path.exists() and not path.is_symlink():
+        return result
+    result["state"] = "invalid"
+    try:
+        data = json.loads(read_evidence_file(path, MAX_RECEIPT))
+        if not isinstance(data, dict) or type(data.get("schema_version")) is not int or data["schema_version"] != 1:
+            raise ValueError("Unsupported acceptance receipt schema")
+        if data.get("kind") != "native_workflow_acceptance" or data.get("binding") != binding:
+            raise ValueError("Acceptance receipt does not match this host, implementation or client versions")
+        if (not binding.get("host_fingerprint") or not binding.get("implementation_fingerprint") or
+                any(not version for version in binding["client_versions"].values())):
+            raise ValueError("The current installation cannot be bound to acceptance evidence")
+        for value in [data.get("run_id")]:
+            if not isinstance(value, str) or str(uuid.UUID(value)) != value:
+                raise ValueError("Acceptance run identity is invalid")
+        verified_at = datetime.datetime.fromisoformat(data["verified_at"].replace("Z", "+00:00"))
+        current = time.time() if timestamp is None else timestamp
+        if verified_at.tzinfo is None or verified_at.timestamp() > current + 300:
+            raise ValueError("Acceptance timestamp is missing a timezone or is in the future")
+        root = path.parent.resolve()
+        checked = {}
+        for direction in ACCEPTANCE_DIRECTIONS:
+            record = data["directions"][direction]
+            for agent in ("claude", "codex"):
+                value = record["sessions"][agent]
+                if not isinstance(value, str) or str(uuid.UUID(value)) != value:
+                    raise ValueError("Acceptance session identity is invalid")
+            for scenario in ACCEPTANCE_SCENARIOS:
+                entry = record["scenarios"][scenario]
+                if not isinstance(entry, dict) or entry.get("result") != "passed":
+                    raise ValueError("Every required scenario must have recorded acceptance")
+                name, expected = entry.get("artifact"), entry.get("sha256")
+                if (not isinstance(name, str) or not name or Path(name).is_absolute() or ".." in Path(name).parts or
+                        not isinstance(expected, str) or not re.fullmatch(r"[0-9a-f]{64}", expected)):
+                    raise ValueError("Acceptance artifact reference is invalid")
+                artifact = root / name
+                try:
+                    artifact.resolve().relative_to(root)
+                except ValueError:
+                    raise ValueError("Acceptance artifact escapes its evidence directory") from None
+                if name not in checked:
+                    checked[name] = hashlib.sha256(read_evidence_file(artifact, MAX_EVIDENCE)).hexdigest()
+                if checked[name] != expected:
+                    raise ValueError("Acceptance artifact digest does not match")
+                result["checked_scenarios"] += 1
+    except (OSError, KeyError, TypeError, AttributeError, OverflowError, ValueError):
+        # Neither file contents nor exception messages (which may embed paths or
+        # untrusted receipt values) belong in a diagnostic report.
+        result["reason"] = "Local acceptance evidence is malformed, incomplete, stale, unsafe, or has changed."
+        return result
+    result.update(verified=True, state="verified",
+                  reason="Both directions have locally bound scenario evidence with matching digests.")
+    return result
+
+
 def report(home=None, platform=None, env=None):
     home = Path.home() if home is None else Path(home)
     platform = sys.platform if platform is None else platform
@@ -218,9 +369,17 @@ def report(home=None, platform=None, env=None):
     if platform == "linux":
         config = Path(env.get("XDG_CONFIG_HOME", str(home / ".config")))
         observations["claude_desktop_tail_gate"] = cached_claude_tail_gate(config / "Claude/fcache")
-    # These are implementation and verification gates, not automatic feature
-    # flags. The presence of a socket or an enabled cached gate cannot satisfy them.
-    blockers = [
+    binding = {
+        "platform": platform,
+        "host_fingerprint": host_fingerprint(home, platform, codex_home),
+        "implementation_fingerprint": implementation_fingerprint(),
+        "client_versions": {name: components[name]["version"] for name in NATIVE_COMPONENTS},
+        "codex_ipc_versions": dict(IPC_VERSIONS),
+    }
+    acceptance = inspect_acceptance(acceptance_path(home, env), binding)
+    # These are implementation gates, not configurable feature flags. A receipt,
+    # present socket, or enabled cached feature cannot create a missing adapter.
+    capability_blockers = [
         {"code": "claude_native_follow",
          "reason": "Claude Desktop attachment, running-history handoff, and successful live model progress remain unverified.",
          "next": "Complete the native Desktop path and verify the implemented VS Code follower with one successful owner."},
@@ -230,14 +389,45 @@ def report(home=None, platform=None, env=None):
         {"code": "bidirectional_acceptance",
          "reason": "The reverse executor and full Claude/Codex acceptance loops have not passed native integration tests.",
          "next": "Implement the reverse adapter after the native-attachment gate; test same-session revision and recovery."},
-        {"code": "platform_validation",
-         "reason": "The complete bidirectional workflow on Linux and real Windows/macOS integration have not passed.",
-         "next": "Validate each target OS before publication; offline tests do not establish native support."},
     ]
+    capabilities = {name: IMPLEMENTATION_CAPABILITIES.get(name) is True
+                    for name in (item["code"] for item in capability_blockers)}
+    runtime_blockers = [item for item in capability_blockers if not capabilities[item["code"]]]
+    if platform != "linux":
+        runtime_blockers.append({"code": "runtime_platform", "reason": "A complete runtime adapter for this OS is not implemented.",
+                                 "next": "Implement and validate this platform before enabling its runtime."})
+    missing = [name for name in NATIVE_COMPONENTS if not components[name]["installed"] or
+               not isinstance(components[name]["version"], str) or not components[name]["version"]]
+    if missing:
+        runtime_blockers.append({"code": "native_client_inventory", "reason": "Missing native client versions: " + ", ".join(missing),
+                                 "next": "Install supported native clients before full local acceptance."})
+    if any(components[name]["protocol_match"] is not True for name in ("codex_desktop", "codex_vscode")):
+        runtime_blockers.append({"code": "codex_native_protocol", "reason": "Installed Codex native IPC protocols are not verified as compatible.",
+                                 "next": "Use supported version-pinned adapters and repeat local acceptance after updates."})
+    if not acceptance["verified"]:
+        runtime_blockers.append({"code": "local_acceptance", "reason": acceptance["reason"],
+                                 "next": "Record both complete native acceptance directions for this host and exact installation."})
+    # Cross-platform publication is a separate gate. Local Linux receipts cannot
+    # claim Windows/macOS validation; no speculative cross-platform receipt
+    # protocol is implemented here.
+    platform_blockers = [{"code": "platform_validation", "platforms": ["win32", "darwin"],
+                          "reason": "Real Windows and macOS native workflow acceptance remains unverified.",
+                          "next": "Validate both target OS implementations before publication."}]
+    runtime_ready = not runtime_blockers
+    release_ready = runtime_ready and not platform_blockers
     return {
-        "schema_version": 1, "platform": platform, "release_ready": False,
-        "status": "blocked", "mode": "read_only_no_model_calls",
-        "components": components, "observations": observations, "blockers": blockers,
+        "schema_version": 1, "platform": platform, "runtime_ready": runtime_ready, "release_ready": release_ready,
+        "status": "ready" if release_ready else "development_ready" if runtime_ready else "blocked",
+        "mode": "read_only_no_model_calls",
+        "components": components, "observations": observations,
+        # Retain the combined field for old report consumers while exposing the
+        # two scopes explicitly to runtime and publication callers.
+        "blockers": runtime_blockers + platform_blockers,
+        "runtime_blockers": runtime_blockers, "platform_blockers": platform_blockers,
+        "implementation_capabilities": capabilities,
+        "local_acceptance": {**acceptance, "binding": binding,
+                             "required_directions": list(ACCEPTANCE_DIRECTIONS),
+                             "required_scenarios": list(ACCEPTANCE_SCENARIOS)},
         "development_evidence": {
             "basis": "recorded_development_checks_not_a_probe_of_this_computer",
             "date": "2026-10-25", "reference": "docs/native-validation.md",
@@ -249,5 +439,7 @@ def report(home=None, platform=None, env=None):
             "Installed versions are observations, not proof of which process is active.",
             "Feature-gate state is cached and may differ from the running client or active account.",
             "No conversation was opened, connected, resumed, or started by this check.",
+            "Local receipts are checked for host/version binding and artifact integrity; doctor does not rerun or judge their recorded tests.",
+            "Runtime readiness does not verify current provider quota or replace runtime connection/permission checks.",
         ],
     }

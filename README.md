@@ -33,6 +33,11 @@ acceptance. Claude subagents default to off. Roles do not swap during a task.
   owner, and a Claude official VS Code follower with an isolated-profile launcher.
   The Claude panel displayed a real session and its provider quota error; a
   successful model turn and revision remain unverified.
+- A removable Linux Claude Desktop follower copy with source checks and native
+  listener coordination. Its actual UI is still unverified. The existing client
+  reported a running background command during quit, so the quit was cancelled.
+- VS Code reconnect replay deduplication, and separate local-runtime and
+  three-platform release gates.
 - Offline regression tests and the [implementation gates](docs/implementation.md).
 - [Native-client findings](docs/native-clients.md), including the current blockers.
 - [Actual validation and remaining work](docs/native-validation.md), separate from
@@ -48,10 +53,15 @@ From the repository root, with Python 3.9+:
 ```sh
 python3 skills/claudex-bridge/scripts/bridge.py doctor
 python3 skills/claudex-bridge/scripts/bridge.py doctor --json
+python3 skills/claudex-bridge/scripts/bridge.py doctor --require-release
 python3 -m unittest discover -s tests -v
 ```
 
-Doctor exits `2` when native requirements are blocked or unverified. A detected
+Doctor exits `2` when this computer's native runtime requirements are blocked or
+unverified. `--require-release` also requires all target platforms. Both gates
+are currently false. Linux development use may begin after its full local
+acceptance; publication still waits for all three OSes. See [evidence rules](docs/acceptance-evidence.md).
+A detected
 socket, a matching protocol version, or a passing offline test is not proof of a
 working three-surface session. It does not connect to conversation sockets, run
 the model CLIs, or write task state. Settings are read only to report whether a

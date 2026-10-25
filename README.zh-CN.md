@@ -24,6 +24,9 @@
 - 新增 Codex 原生 TUI 网关，已连接真实 Desktop 会话并显示持续进度。
 - 新增 Claude 官方 VS Code 只读适配器和隔离配置启动器，已显示真实临时会话
   及供应商的额度不足错误；成功执行、自动返工尚未完成实测。
+- 新增可删除回滚的 Linux Claude 桌面端测试副本，完成读取、监听与断线处理。
+  原生界面尚未验证：退出确认发现原客户端有后台命令，已取消退出、保留原任务。
+- 修复 VS Code 重连时历史重复显示，并分开本机启用条件与三平台发布条件。
 - [实施与验收清单](docs/implementation.md)、[客户端接口调查](docs/native-clients.md)及离线回归测试。
 - [真实验证记录](docs/native-validation.md)与[开发用查看命令](docs/native-views.md)。
 
@@ -37,10 +40,14 @@
 ```sh
 python3 skills/claudex-bridge/scripts/bridge.py doctor
 python3 skills/claudex-bridge/scripts/bridge.py doctor --json
+python3 skills/claudex-bridge/scripts/bridge.py doctor --require-release
 python3 -m unittest discover -s tests -v
 ```
 
-`doctor` 在有阻塞或未验证项时返回退出码 `2`。它只读本地安装信息，不连接会话
+`doctor` 在本机执行能力有阻塞或未验证项时返回退出码 `2`；`--require-release`
+额外要求三平台验收通过。目前两个条件均未通过。Linux 完整验收后可先启用本地
+开发版，GitHub 发布仍等待三平台通过。参见[验收证据约束](docs/acceptance-evidence.md)。
+它只读本地安装信息，不连接会话
 socket、不运行模型 CLI、不修改配置、不创建任务。只报告是否存在自定义 Claude
 供应商，不输出供应商地址和凭据。协议匹配、socket 存在和离线测试通过都不能
 代替真实三端联调。

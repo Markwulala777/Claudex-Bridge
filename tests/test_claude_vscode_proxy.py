@@ -100,6 +100,21 @@ class Fixture(unittest.TestCase):
 
 
 class TailTests(Fixture):
+    def test_replay_then_live_append_during_handshake_is_one_lossless_stream(self):
+        first = transcript(content="history")
+        self.append(first)
+        follower = self.follower()
+        second = transcript("assistant", "arrived during initialize", parent=first["uuid"])
+        self.append(second)
+        frames = follower.control(control()) + follower.poll()
+        messages = [frame for frame in frames if frame.get("type") in ("user", "assistant")]
+        self.assertEqual([frame["uuid"] for frame in messages], [first["uuid"], second["uuid"]])
+        self.assertEqual(follower.poll(), [])
+        third = transcript(content="after initialize", parent=second["uuid"])
+        self.append(third)
+        self.assertEqual([frame["uuid"] for frame in follower.poll()], [third["uuid"]])
+        self.assertEqual(follower.poll(), [])
+
     def test_fragmented_utf8_and_coalesced_records_keep_exact_boundaries(self):
         first, second = transcript(content="中文"), transcript(content="next")
         payload = wire(first)
@@ -135,6 +150,23 @@ class TailTests(Fixture):
         self.source.write_bytes(b"not-json\n")
         with self.assertRaisesRegex(proxy.ProtocolError, "JSON"):
             self.follower()
+
+    def test_rewrite_at_same_inode_is_rejected_before_any_new_rows(self):
+        for append_new in (False, True):
+            with self.subTest(append_new=append_new):
+                self.source.write_bytes(wire(transcript(content="original")))
+                tail = proxy.JsonlTail(self.source)
+                self.addCleanup(tail.close)
+                tail.read_available()
+                inode = self.source.stat().st_ino
+                before = self.source.read_bytes()
+                changed = before.replace(b"original", b"modified")
+                if append_new:
+                    changed += wire(transcript(content="must not arrive"))
+                self.source.write_bytes(changed)
+                self.assertEqual(self.source.stat().st_ino, inode)
+                with self.assertRaisesRegex(proxy.ProtocolError, "rewritten in place"):
+                    tail.read_available()
 
 
 class BindingTests(Fixture):

@@ -176,6 +176,7 @@ class JsonlTail:
         self.identity = (info.st_dev, info.st_ino)
         self.offset = 0
         self.pending = b""
+        self.digest = hashlib.sha256()
 
     def close(self) -> None:
         if self.fd is not None:
@@ -191,6 +192,22 @@ class JsonlTail:
             raise ProtocolError("Bound source was replaced; refusing an implicit reconnect")
         if info.st_size < self.offset:
             raise ProtocolError("Bound source was truncated")
+        if self.offset:
+            # A truncate-and-rewrite can restore the previous length between
+            # polls, including within one filesystem timestamp tick. Verify the
+            # consumed prefix even at EOF. This development adapter favors
+            # explicit consistency checks over large-history performance.
+            # pread leaves the tail cursor unchanged.
+            prefix = hashlib.sha256()
+            checked = 0
+            while checked < self.offset:
+                chunk = os.pread(self.fd, min(READ_BYTES, self.offset - checked), checked)
+                if not chunk:
+                    raise ProtocolError("Bound source changed while verifying its history")
+                prefix.update(chunk)
+                checked += len(chunk)
+            if prefix.digest() != self.digest.digest():
+                raise ProtocolError("Bound source history was rewritten in place")
         end = info.st_size  # A finite snapshot even while the owner is writing.
         result = []
         while self.offset < end:
@@ -198,6 +215,7 @@ class JsonlTail:
             if not chunk:
                 raise ProtocolError("Bound source changed while reading")
             self.offset += len(chunk)
+            self.digest.update(chunk)
             self.pending += chunk
             while b"\n" in self.pending:
                 line, self.pending = self.pending.split(b"\n", 1)

@@ -37,10 +37,18 @@ python3 -m unittest discover -s tests -v
 python3 skills/claudex-bridge/scripts/bridge.py doctor --json
 ```
 
-Doctor is read-only, makes no model calls, and exits 2 while release requirements
-are unmet. Offline tests use temporary files and protocol doubles, never a real
-model. Live integration is authorized for temporary projects in this development
+Doctor is read-only, makes no model calls, and exits 2 while this computer's
+runtime requirements are unmet. `doctor --require-release` additionally requires
+all three platforms. Linux may be enabled after its full acceptance without
+claiming Windows/macOS support or publishing. Offline tests use temporary files
+and protocol doubles, never a real model. Live integration is authorized for temporary projects in this development
 task; do not relabel it as verified before observing the actual native surfaces.
 Record evidence separately from expectations. Windows/macOS require real checks
 on those systems before claiming support. Do not commit local transcripts,
 credentials, diagnostic reports, or task state.
+
+Claude Desktop's removable copy uses the existing profile exclusively; never
+launch it alongside the normal client. A registry `idle` value does not prove
+background commands have stopped. Honor the native quit confirmation and preserve
+unrelated work. The prepared copy and offline tests do not establish native UI
+attachment or successful live execution.

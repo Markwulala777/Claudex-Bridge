@@ -110,7 +110,21 @@ adapter below is pinned to 2.1.295. The production Desktop constructor reference
 `CLAUDE_CODE_LOCAL_BINARY` but does not invoke its local-binary initializer in the
 observed build. Its process wrapper comes from managed settings; user/environment
 settings are filtered. Neither setting is a verified user-level Desktop adapter.
-No managed policy, app bundle or feature gate was changed.
+No managed policy, installed app bundle or feature gate was changed.
+
+A new removable Linux copy replaces the exact native LocalSessions API factory
+before it initializes the original manager. It serves one bound transcript via a
+read-only Python reader and the native Desktop event/schema path. The preload
+acknowledges actual navigation and event listener registrations separately. This
+does not use the gated CLI-tail path, adopt ownership, or launch another Claude.
+Its native route is `/epitaxy/local_<exact CLI session UUID>`.
+
+The copy preserves the normal profile/login and refuses to run while the original
+Desktop is open. After authorization to quit idle sessions, the native quit dialog
+reported one session with a running background command. Quit was cancelled; the
+copy has not been launched. Offline factory, schema, transport and lifecycle tests
+passed, but actual native rendering and the running-history handoff remain
+unverified. See [Desktop adapter contract](claude-desktop-protocol.md).
 
 ### Official VS Code panel
 
@@ -130,10 +144,14 @@ An isolated profile displayed the real temporary session, its quota failure and
 the attachment notice. The user's normal profile is unchanged. See
 [protocol evidence](claude-vscode-protocol.md) and [actual validation](native-validation.md).
 
-Attaching during an active turn still needs a native history-cursor acknowledgment
-to avoid gaps or duplicates. The checked handoff kept the owner idle and used its
-exact complete JSONL boundary. A transcript alone cannot provide faithful token
-streaming, permission state or turn-completion events.
+The isolated replay profile now clears only the bound session's native history
+response and receives history plus appends through one proxy stream. A pinned
+webview patch retains message UUID/content identities across channel reconnects.
+Its offline native receive-loop regression no longer doubles messages on replay;
+the patched panel also displayed the real failed session once. The host still
+reads native history for diff metadata, and transcript-only observation still
+lacks faithful token, permission and turn-completion events. A successful active
+owner and full native reconnect workflow remain to be observed.
 
 ### Native terminal and provider
 
@@ -143,7 +161,7 @@ print/stream-JSON mode. `--desktop` transfers execution toward Desktop and is no
 combinable with `--bg` in the observed CLI.
 
 A candidate uses an interactive TUI as the single executor, the implemented VS
-Code stdio proxy, and Desktop's native transcript tail. It still depends on the
+Code stdio proxy, and the removable Desktop read-only API adapter. It still depends on the
 unverified Desktop UI, a coordinated running-history handoff and actual successful
 owner events. It is not yet an implemented three-surface architecture.
 

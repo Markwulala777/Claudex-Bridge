@@ -42,6 +42,11 @@ panel displayed that same session through the follower. See the precise
 - [x] Implement a Claude VS Code follower and verify the actual panel's binding,
   history rendering and initialization without starting a second Claude.
 - [x] Add an isolated VS Code profile helper without changing the user's profile.
+- [x] Use one message stream in the isolated VS Code view and deduplicate reconnect
+  replay in the native session model; preserve native diff metadata.
+- [x] Prepare a removable, version-pinned Linux Claude Desktop copy with a read-only
+  LocalSessions API, explicit listener acknowledgments and source-failure handling.
+- [ ] Observe that Desktop copy rendering the bound conversation in its actual UI.
 - [ ] Claude: one executing session simultaneously visible in native TUI,
   native Desktop, and official VS Code panel, with the existing provider retained.
 - [x] Codex on Linux: one existing executing session simultaneously observed in
@@ -111,6 +116,7 @@ file. For both initiating agents, record evidence that:
 7. No endpoint, login, CC Switch or unrelated configuration changes are needed.
 
 - [ ] Linux actual native end-to-end run.
+- [x] Separate local runtime readiness from the three-platform publication gate.
 - [ ] Windows actual native end-to-end run.
 - [ ] macOS actual native end-to-end run.
 - [ ] Full bilingual installation and troubleshooting instructions reflect the results.

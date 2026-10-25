@@ -16,10 +16,15 @@ CLI 已登录、共享历史可读或旧执行器能运行，就宣布完整桥�
 python3 <skill-directory>/scripts/bridge.py doctor --json
 ```
 
-`release_ready=false` 或退出码 `2` 时，根据 `blockers` 说明具体缺口并停止本次
+`runtime_ready=false` 或退出码 `2` 时，根据 `runtime_blockers` 说明具体缺口并停止本次
 派工。不要自动改用 `codex exec`、`claude -p`、新面板、日志或历史导入来替代
 用户要求的原生同时显示。不要重启正在工作的客户端或更改其功能门来伪装支持。
 诊断不启动模型，也不影响已安装的 `codex-worker`。
+
+本机完整验收通过后可以启用 Linux 开发版；`release_ready` 和
+`doctor --require-release` 单独约束三平台验收与 GitHub 发布。不要用本机通过
+推断其他平台支持。验收记录必须匹配本机、客户端版本和当前实现，不能手写
+“通过”来开启缺失功能。开发用查看器仍不具备派工与验收能力。
 
 ## 主角色与子代理
 

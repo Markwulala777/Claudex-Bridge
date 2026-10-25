@@ -66,6 +66,22 @@ def prepare(directory, project, binding_path, extension_path, code=None):
     proxy = Path(__file__).with_name("claude_vscode_proxy.py").resolve()
     if not proxy.is_file():
         raise ViewError("Claude VS Code adapter is missing")
+    history_patch = None
+    if binding.history == "replay":
+        from claude_vscode_history import patch, patch_webview
+        source = (extension / "extension.js").read_bytes()
+        try:
+            patched = patch(source, binding.session_id)
+            webview_source = (extension / "webview/index.js").read_bytes()
+            patched_webview = patch_webview(webview_source, binding.session_id)
+        except ValueError as exc:
+            raise ViewError(str(exc)) from None
+        history_patch = {
+            "source_sha256": hashlib.sha256(source).hexdigest(),
+            "patched_sha256": hashlib.sha256(patched).hexdigest(),
+            "webview_source_sha256": hashlib.sha256(webview_source).hexdigest(),
+            "webview_patched_sha256": hashlib.sha256(patched_webview).hexdigest(),
+        }
     # All preflight checks precede creating the prepared view. No credentials,
     # provider configuration or current VS Code profile are copied.
     directory.mkdir(parents=True, mode=0o700)
@@ -74,7 +90,24 @@ def prepare(directory, project, binding_path, extension_path, code=None):
     user_settings.mkdir(parents=True, mode=0o700)
     extensions = directory / "extensions"
     extensions.mkdir(mode=0o700)
-    (extensions / extension.name).symlink_to(extension, target_is_directory=True)
+    installed = extensions / extension.name
+    if history_patch is None:
+        installed.symlink_to(extension, target_is_directory=True)
+    else:
+        # Keep original resources, with isolated host and webview patches.
+        # Never write through a symlink into the installed extension.
+        installed.mkdir(mode=0o700)
+        for entry in extension.iterdir():
+            if entry.name not in ("extension.js", "webview"):
+                (installed / entry.name).symlink_to(entry, target_is_directory=entry.is_dir())
+        (installed / "extension.js").write_bytes(patched)
+        (installed / "extension.js").chmod(0o600)
+        (installed / "webview").mkdir(mode=0o700)
+        for entry in (extension / "webview").iterdir():
+            if entry.name != "index.js":
+                (installed / "webview" / entry.name).symlink_to(entry, target_is_directory=entry.is_dir())
+        (installed / "webview/index.js").write_bytes(patched_webview)
+        (installed / "webview/index.js").chmod(0o600)
     launcher = directory / "claude-view-wrapper"
     # Python repr is source-code quoting; no user data is interpolated into shell.
     # The extension passes the original CLI as argv[1]; preserve all those args.
@@ -104,6 +137,7 @@ def prepare(directory, project, binding_path, extension_path, code=None):
         "binding_sha256": hashlib.sha256(binding_path.read_bytes()).hexdigest(),
         "extension": str(extension), "extension_version": package["version"],
         "proxy": str(proxy), "code": executable,
+        "history": binding.history, "history_patch": history_patch,
     }
     write_private(directory / "view.json", metadata)
     return describe(directory, metadata)
@@ -123,6 +157,17 @@ def load(directory):
     binding = Path(metadata["binding"])
     if hashlib.sha256(binding.read_bytes()).hexdigest() != metadata["binding_sha256"]:
         raise ViewError("Binding changed after preparation; prepare a new view instead of switching its session")
+    patch = metadata.get("history_patch")
+    if metadata.get("history") == "replay" and not patch:
+        raise ViewError("Replay history requires the isolated native history patch")
+    if patch:
+        extension = Path(metadata["extension"])
+        installed = directory / "extensions" / extension.name
+        if (hashlib.sha256((extension / "extension.js").read_bytes()).hexdigest() != patch["source_sha256"]
+                or hashlib.sha256((installed / "extension.js").read_bytes()).hexdigest() != patch["patched_sha256"]
+                or hashlib.sha256((extension / "webview/index.js").read_bytes()).hexdigest() != patch.get("webview_source_sha256")
+                or hashlib.sha256((installed / "webview/index.js").read_bytes()).hexdigest() != patch.get("webview_patched_sha256")):
+            raise ViewError("Native extension changed after preparation; prepare a new compatible view")
     return directory, metadata
 
 
@@ -132,6 +177,7 @@ def describe(directory, metadata):
         "profile": str(directory / "profile"), "project": metadata["project"],
         "mode": "read_only_native_follower", "execution_started": False,
         "native_ui_verified": False,
+        "history_transport": "single_stream" if metadata.get("history") == "replay" else "native_snapshot_requires_idle_owner",
         "note": "Opening requests the official panel; only observing the panel can verify native rendering.",
     }
 

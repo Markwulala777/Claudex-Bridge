@@ -14,6 +14,7 @@ def main(argv=None):
     commands = parser.add_subparsers(dest="command", required=True)
     doctor = commands.add_parser("doctor", help="Read local compatibility evidence without starting models")
     doctor.add_argument("--json", action="store_true", help="Emit machine-readable findings")
+    doctor.add_argument("--require-release", action="store_true", help="Require all target platforms to pass, rather than this computer only")
     prepare = commands.add_parser("prepare-claude-view", help="Prepare an isolated official VS Code follower profile")
     prepare.add_argument("--directory", required=True, help="New directory for the isolated view")
     prepare.add_argument("--project", required=True)
@@ -22,14 +23,27 @@ def main(argv=None):
     prepare.add_argument("--code", help="VS Code CLI executable")
     open_view = commands.add_parser("open-claude-view", help="Open an already prepared native follower profile")
     open_view.add_argument("--directory", required=True)
+    desktop = commands.add_parser("prepare-claude-desktop-view", help="Prepare a removable version-pinned Linux Desktop follower copy")
+    desktop.add_argument("--directory", required=True)
+    desktop.add_argument("--project", required=True)
+    desktop.add_argument("--binding", required=True)
+    desktop.add_argument("--resources", help="Installed Claude Desktop resources directory")
+    desktop_open = commands.add_parser("open-claude-desktop-view", help="Open a prepared follower only when the normal Desktop is closed")
+    desktop_open.add_argument("--directory", required=True)
     args = parser.parse_args(argv)
     if args.command != "doctor":
         import native_view
         try:
             if args.command == "prepare-claude-view":
                 result = native_view.prepare(args.directory, args.project, args.binding, args.extension, args.code)
-            else:
+            elif args.command == "open-claude-view":
                 result = native_view.open_view(args.directory)
+            else:
+                import claude_desktop_view
+                if args.command == "prepare-claude-desktop-view":
+                    result = claude_desktop_view.prepare(args.directory, args.project, args.binding, args.resources)
+                else:
+                    result = claude_desktop_view.open_view(args.directory)
         except (native_view.ViewError, OSError, ValueError, KeyError) as exc:
             print(json.dumps({"error": str(exc), "execution_started": False}, ensure_ascii=False))
             return 2
@@ -39,13 +53,13 @@ def main(argv=None):
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
-        print("Claudex Bridge: blocked (native integration has not passed)")
+        print("Claudex Bridge: " + ("ready for this computer" if result["runtime_ready"] else "blocked (native integration has not passed)"))
         for name, component in result["components"].items():
             print(f"  {name}: {component['version'] or 'not detected'}")
         for blocker in result["blockers"]:
             print(f"  [{blocker['code']}] {blocker['reason']}")
         print("No model calls, client changes, or task submissions were made.")
-    return 0 if result["release_ready"] else 2
+    return 0 if result["release_ready" if args.require_release else "runtime_ready"] else 2
 
 
 if __name__ == "__main__":

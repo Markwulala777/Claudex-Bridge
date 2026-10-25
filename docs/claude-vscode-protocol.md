@@ -34,6 +34,8 @@ The launch environment must contain
 The example UUID and offset are placeholders. `source_format` can also be
 `stream-json`, meaning an append-only recording of the actual owner's SDK output.
 `ready_file` is optional and must not exist. Its parent directory must exist.
+It is a one-shot handshake probe: omit it for ordinary reconnectable views.
+Reusing a binding with an existing receipt is intentionally refused.
 The producer version, version found in the source, and official extension
 package version must all be 2.1.295. In particular, a Desktop-owned 2.1.308
 producer is **not** silently treated as compatible.
@@ -64,12 +66,16 @@ the wrapper finishes initializing, are delivered. There is no implicit
 "start at current EOF" behavior. The caller must obtain the boundary matching
 the history already loaded by the native host. A new viewer with no history can
 use zero. `history: "replay"` emits the existing source after initialization and
-is only appropriate when the host has not already displayed that history.
+is appropriate when the host has not already displayed that history. The isolated
+profile helper now enforces that condition for the exact bound session through
+the two pinned patches described below.
 
 The follower validates the whole existing source before responding to initialize,
 then polls it every 100 ms. Partial UTF-8/JSON lines are retained until complete.
 Identical event UUIDs are deduplicated; changed UUID payloads, another session,
-truncation, replacement, and version changes stop the follower. A source EOF
+truncation, replacement, in-place changes to consumed bytes, and version changes
+stop the follower. Consumed bytes are rehashed on each poll, including at EOF;
+this development implementation is not optimized for large histories. A source EOF
 does not mean the owner's turn has completed.
 
 ## Actual SDK protocol and native consumers
@@ -187,12 +193,39 @@ replay has separate UUID handling; assistant transcript replay does not. Replayi
 the full transcript blindly can therefore duplicate assistant rows. Injecting a
 fake streaming event to enable that branch would not be faithful observation.
 
-For a controlled temporary attach check, keep the owner idle, capture the exact
+For a controlled `history: "native"` attach check, keep the owner idle, capture the exact
 complete transcript EOF, open the native viewer using that boundary, wait for
 the readiness receipt, and only then submit the next owner prompt. A general
-running-session attach still needs a native history cursor acknowledgment or an
-equivalent coordinated snapshot. The wrapper cannot infer what a previously
-opened webview has already displayed.
+running-session attach in that mode still needs a native history cursor
+acknowledgment. The wrapper cannot infer what an unpatched webview displayed.
+
+### Isolated replay profile
+
+For `history: "replay"`, `native_view.py` writes local copies of `extension.js`
+and `webview/index.js` in a new profile's extension directory. It never writes
+through the links to installed resources. `claude_vscode_history.py` checks both
+original hashes and unique anchors; preparation and reopening refuse changed or
+unknown builds.
+
+For the exact bound session, the host response supplies an empty message history.
+The proxy then provides the only displayed history and live-message stream from
+one descriptor. The host still performs its native history/diff reads and returns
+diff metadata; this patch does not remove those reads or bypass their errors.
+Other sessions retain their original host response but cannot execute through the
+bound wrapper.
+
+The native webview's receive loop keeps successful message UUID/content identities
+on its session model across follower-channel restarts. Identical user, assistant
+and streaming frames do not render twice. Real state frames such as init, status,
+task updates and results still reach the native reducer after reconnect. Changed
+content under an existing UUID closes only the follower channel and displays an
+error. It never interrupts or resumes the actual executing owner.
+
+An offline test using the installed receive-loop and render methods reproduced
+two rows becoming four on reconnect; the patched path stays at two. A new actual
+native panel displayed the real failed session once with both patches applied.
+Terminating just its reader displayed the native SIGTERM error. Successful live
+owner progress and an actual same-model channel restart remain separate checks.
 
 ## Verification performed and work still required
 
@@ -227,12 +260,11 @@ readiness. Run:
 python3 -m unittest discover -s tests -p test_claude_vscode_proxy.py -v
 ```
 
-Still required for native integration: launch the official panel in an isolated
-VS Code profile, supply the per-attachment binding, observe real progress in the
-webview, and integrate the executing owner's event source and exact history
-handoff. This file alone does not install a profile, implement Desktop or TUI
-attachment, make a 2.1.308 producer compatible, or demonstrate three-surface
-operation.
+The official panel has now displayed the real quota-failure session in an isolated
+profile, including after the replay patches. Still required: successful live owner
+progress, native reconnect validation and integration of authoritative owner
+events. The component does not make a 2.1.308 producer compatible or establish
+three-surface operation. See [actual validation](native-validation.md).
 
 Evidence file SHA-256 values:
 
