@@ -29,8 +29,14 @@ acceptance. Claude subagents default to off. Roles do not swap during a task.
   recovery, persistent uncertain-submission protection, review records, and stop.
 - A read-only compatibility doctor. It reports detected interfaces separately
   from verified behavior and never starts a model or changes client settings.
+- A version-pinned Codex native TUI gateway, tested against a running Desktop
+  owner, and a Claude official VS Code follower with an isolated-profile launcher.
+  The Claude panel displayed a real session and its provider quota error; a
+  successful model turn and revision remain unverified.
 - Offline regression tests and the [implementation gates](docs/implementation.md).
 - [Native-client findings](docs/native-clients.md), including the current blockers.
+- [Actual validation and remaining work](docs/native-validation.md), separate from
+  [native-view development commands](docs/native-views.md).
 
 The installed `codex-worker` remains the compatibility entrypoint. The new skill
 has not replaced it. There is no installer or supported reverse runner yet.

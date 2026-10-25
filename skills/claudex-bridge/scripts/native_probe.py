@@ -222,22 +222,29 @@ def report(home=None, platform=None, env=None):
     # flags. The presence of a socket or an enabled cached gate cannot satisfy them.
     blockers = [
         {"code": "claude_native_follow",
-         "reason": "Native Desktop/TUI/VS Code live attachment to one Claude execution is not implemented or verified.",
-         "next": "Verify the native Desktop tail UI and implement the VS Code process-wrapper adapter before dispatch."},
-        {"code": "codex_native_tui_follow",
-         "reason": "The retained desktop IPC transport is not the app-server transport required by native TUI --remote.",
-         "next": "Verify a shared execution owner across Desktop, IDE and TUI without restarting an active user task."},
+         "reason": "Claude Desktop attachment, running-history handoff, and successful live model progress remain unverified.",
+         "next": "Complete the native Desktop path and verify the implemented VS Code follower with one successful owner."},
+        {"code": "native_workflow_acceptance",
+         "reason": "Read-only native-view components do not yet establish the complete dispatch/revision/recovery workflow.",
+         "next": "Use the version-pinned adapters to validate native views throughout both full acceptance loops."},
         {"code": "bidirectional_acceptance",
          "reason": "The reverse executor and full Claude/Codex acceptance loops have not passed native integration tests.",
          "next": "Implement the reverse adapter after the native-attachment gate; test same-session revision and recovery."},
         {"code": "platform_validation",
-         "reason": "Linux three-surface integration and real Windows/macOS integration have not passed.",
+         "reason": "The complete bidirectional workflow on Linux and real Windows/macOS integration have not passed.",
          "next": "Validate each target OS before publication; offline tests do not establish native support."},
     ]
     return {
         "schema_version": 1, "platform": platform, "release_ready": False,
         "status": "blocked", "mode": "read_only_no_model_calls",
         "components": components, "observations": observations, "blockers": blockers,
+        "development_evidence": {
+            "basis": "recorded_development_checks_not_a_probe_of_this_computer",
+            "date": "2026-10-25", "reference": "docs/native-validation.md",
+            "codex_tui": "real_desktop_owner_history_and_live_updates_observed",
+            "claude_vscode": "real_quota_failure_history_and_follower_handshake_observed",
+            "full_bridge_verified": False,
+        },
         "evidence_limits": [
             "Installed versions are observations, not proof of which process is active.",
             "Feature-gate state is cached and may differ from the running client or active account.",

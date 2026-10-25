@@ -25,24 +25,31 @@ The old runner's state directory deliberately remains
 overridable by the existing `CODEX_WORKER_STATE_DIR`. No task-state migration is
 performed. New state roots must not bypass its one-main-worker lock.
 
-Current verification (Linux, 2026-10-25): `python3 -m unittest discover -s tests -v`
-passed all 36 offline tests. These cover state recovery, uncertain submission,
-revision, review gates, exact-turn cancellation, protocol framing/ownership,
-bootstrap identity persistence, and diagnostic output. Skill validation and Python
-syntax checks passed. The installed runner scripts match the retained repository
-copies. No real Claude/Codex model call or native three-surface trial was performed.
+Current verification (Linux, 2026-10-25): the suite now includes the native
+view adapters, profile isolation, faithful failure rendering, metadata probes,
+history boundaries, and rejection of duplicate execution. Real Codex Desktop
+history and live progress were rendered by the native TUI. A real Claude request
+was rejected by the existing provider for insufficient quota; its unchanged
+temporary project and failure message were checked, and the official VS Code
+panel displayed that same session through the follower. See the precise
+[validation record](native-validation.md). These checks do not complete the bridge.
 
 ## 2. Native attachment gate — currently blocked
 
 - [x] Inspect the locally installed clients and protocol versions without model calls.
 - [x] Identify exact missing attachment paths and distinguish them from history import.
+- [x] Implement a read-only native Codex TUI gateway and verify real owner updates.
+- [x] Implement a Claude VS Code follower and verify the actual panel's binding,
+  history rendering and initialization without starting a second Claude.
+- [x] Add an isolated VS Code profile helper without changing the user's profile.
 - [ ] Claude: one executing session simultaneously visible in native TUI,
   native Desktop, and official VS Code panel, with the existing provider retained.
-- [ ] Codex: one executing session simultaneously visible in native TUI,
-  native Desktop, and official VS Code panel, using existing login.
+- [x] Codex on Linux: one existing executing session simultaneously observed in
+  native TUI, native Desktop, and official VS Code panel, using existing login.
+  Full dispatch/revision acceptance below remains separate.
 - [ ] Opening or reconnecting another native view never starts a second inference.
 - [ ] Native views update tool activity and results automatically without user refresh.
-- [ ] Save actual client versions and integration evidence for each working adapter.
+- [x] Save actual client versions and integration evidence for each working adapter.
 
 See [native-client findings](native-clients.md). The full bridge must not dispatch
 until this gate passes. The old desktop leg is retained as implementation input,

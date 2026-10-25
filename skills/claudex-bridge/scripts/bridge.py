@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Claudex Bridge development CLI. No live bridge is dispatched by doctor."""
+"""Claudex Bridge development CLI. Diagnostic and native-view helpers only."""
 import argparse
 import json
 import sys
@@ -14,7 +14,27 @@ def main(argv=None):
     commands = parser.add_subparsers(dest="command", required=True)
     doctor = commands.add_parser("doctor", help="Read local compatibility evidence without starting models")
     doctor.add_argument("--json", action="store_true", help="Emit machine-readable findings")
+    prepare = commands.add_parser("prepare-claude-view", help="Prepare an isolated official VS Code follower profile")
+    prepare.add_argument("--directory", required=True, help="New directory for the isolated view")
+    prepare.add_argument("--project", required=True)
+    prepare.add_argument("--binding", required=True, help="Explicit follower binding JSON")
+    prepare.add_argument("--extension", required=True, help="Supported installed official Claude Code extension directory")
+    prepare.add_argument("--code", help="VS Code CLI executable")
+    open_view = commands.add_parser("open-claude-view", help="Open an already prepared native follower profile")
+    open_view.add_argument("--directory", required=True)
     args = parser.parse_args(argv)
+    if args.command != "doctor":
+        import native_view
+        try:
+            if args.command == "prepare-claude-view":
+                result = native_view.prepare(args.directory, args.project, args.binding, args.extension, args.code)
+            else:
+                result = native_view.open_view(args.directory)
+        except (native_view.ViewError, OSError, ValueError, KeyError) as exc:
+            print(json.dumps({"error": str(exc), "execution_started": False}, ensure_ascii=False))
+            return 2
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 0
     result = report()
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))

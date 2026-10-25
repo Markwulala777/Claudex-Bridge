@@ -1,8 +1,8 @@
 # Native-client findings
 
-Evidence collected on Linux, 2026-10-25. These are read-only installation and
-protocol observations. No new live three-surface session has been verified by this
-development work. Private interfaces may change; versions alone are not acceptance.
+Evidence collected on Linux, 2026-10-25. Installation observations below are
+separate from the [actual native validation](native-validation.md). Private
+interfaces may change; versions alone are not acceptance.
 
 | Component | Observed installed version |
 | --- | --- |
@@ -12,9 +12,10 @@ development work. Private interfaces may change; versions alone are not acceptan
 | Codex official VS Code extension | 26.1007.21434 |
 | Extension-bundled Codex CLI | 0.162.0-alpha.17.2 |
 | Claude Desktop | 3.6556.1 |
+| Claude Desktop executing CLI | 2.1.308 |
 | Claude Code VS Code extension/bundled CLI | 2.1.295 |
 
-## Codex: native Desktop ↔ IDE exists; native TUI needs another transport
+## Codex: native Desktop ↔ IDE and the TUI gateway
 
 Desktop's `app.asar/.vite/build/src-*.js` and the official extension's
 `out/extension.js` share these generic IPC versions:
@@ -30,8 +31,8 @@ Desktop's `app.asar/.vite/build/src-*.js` and the official extension's
 | `thread-stream-following-status-requested` | 1 |
 
 Both clients implement owner discovery, follower requests and real-time snapshot /
-patch broadcasts. This supports retaining the existing desktop adapter, but actual
-dual-window rendering still requires a temporary task and observation.
+patch broadcasts. Actual dual-window rendering was subsequently observed on the
+current development conversation; the full task workflow remains unverified.
 
 The native TUI's `--remote` uses the **app-server WebSocket protocol**, not this
 length-prefixed generic IPC. The current running Desktop and IDE each own a stdio
@@ -54,8 +55,15 @@ needs a planned restart/startup configuration; this work has **not** restarted t
 user's current Desktop or migrated its active conversation.
 
 The official extension registers a URI handler and `/local/:conversationId` route.
-`vscode://openai.chatgpt/local/<UUID>` is a source-backed candidate for opening the
-native panel, not a tested activation guarantee.
+`vscode://openai.chatgpt/local/<UUID>` opened the current development conversation
+in an isolated official IDE panel. It displayed actual new commentary and tool
+activity from the existing Desktop owner. This does not itself establish a full
+implementation/review/revision workflow.
+
+`codex_tui_gateway.py` now translates read-only owner snapshots into the native
+app-server WebSocket protocol without restarting Desktop or starting another
+executor. Real history, tool output and assistant increments were observed in
+the bundled native TUI. See [protocol and limitations](codex-tui-protocol.md).
 
 ### Subagents
 
@@ -97,6 +105,13 @@ There is also a lifecycle mismatch: Desktop counts `interactive` sessions as liv
 for tail shutdown, while `claude --bg` registers `kind: bg`. A background session
 cannot be assumed to keep this native tail open.
 
+The current Desktop producer is Claude Code 2.1.308, while the official IDE
+adapter below is pinned to 2.1.295. The production Desktop constructor references
+`CLAUDE_CODE_LOCAL_BINARY` but does not invoke its local-binary initializer in the
+observed build. Its process wrapper comes from managed settings; user/environment
+settings are filtered. Neither setting is a verified user-level Desktop adapter.
+No managed policy, app bundle or feature gate was changed.
+
 ### Official VS Code panel
 
 `get_session_request` reads the saved transcript once. The webview's
@@ -105,11 +120,20 @@ cannot be assumed to keep this native tail open.
 registry updates affect the session list, not a transcript subscription. There is
 no verified passive live follow route in this version.
 
-The documented `claudeCode.claudeProcessWrapper` is a possible adapter entrypoint:
-the wrapper receives the original binary and stdio stream-JSON arguments. A real
-implementation would need initialization/control responses, history replay,
-deduplication, event translation, disconnection and single-owner semantics. Merely
-enabling the wrapper does not provide those features. No wrapper is installed.
+The documented, machine-scoped `claudeCode.claudeProcessWrapper` is now used by
+`claude_vscode_proxy.py`. It receives the original binary and stream-JSON arguments
+but never executes that binary. It implements exact source/session/version checks,
+initialization, a coordinated history boundary, faithful events, and explicit
+refusal of execution controls. The official `disableLoginPrompt` option lets the
+read-only profile show its session without inventing an authenticated account.
+An isolated profile displayed the real temporary session, its quota failure and
+the attachment notice. The user's normal profile is unchanged. See
+[protocol evidence](claude-vscode-protocol.md) and [actual validation](native-validation.md).
+
+Attaching during an active turn still needs a native history-cursor acknowledgment
+to avoid gaps or duplicates. The checked handoff kept the owner idle and used its
+exact complete JSONL boundary. A transcript alone cannot provide faithful token
+streaming, permission state or turn-completion events.
 
 ### Native terminal and provider
 
@@ -118,10 +142,10 @@ it is not a general passive follower for an SDK process. `--sdk-url` is limited 
 print/stream-JSON mode. `--desktop` transfers execution toward Desktop and is not
 combinable with `--bg` in the observed CLI.
 
-A candidate uses an interactive TUI as the single executor, a VS Code stdio proxy,
-and Desktop's native transcript tail. It still depends on the unavailable or
-unverified Desktop UI and an unimplemented VS Code proxy. It is a research path,
-not the implemented architecture.
+A candidate uses an interactive TUI as the single executor, the implemented VS
+Code stdio proxy, and Desktop's native transcript tail. It still depends on the
+unverified Desktop UI, a coordinated running-history handoff and actual successful
+owner events. It is not yet an implemented three-surface architecture.
 
 The current Claude setup has a base-URL override. Remote Control's official-endpoint
 requirements do not establish compatibility with this setup. No endpoint or login
@@ -136,8 +160,7 @@ Official references:
 
 ## Consequence for the release gate
 
-The full requirement cannot be marked supported by the retained runner or Skill
-changes. First verify a usable native Claude Desktop tail view, implement and test
-the VS Code proxy against the same owner, and establish Codex's native TUI shared
-owner. Then perform both acceptance loops on each OS. Do not substitute logs,
-custom panels, duplicated inference or history imports for these checks.
+The full requirement cannot be marked supported by these view components. Complete
+the native Claude Desktop path and successful owner/follower checks, then perform
+both acceptance loops on each OS. Do not substitute logs, custom panels, duplicated
+inference or history imports for these checks.
