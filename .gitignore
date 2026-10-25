@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.venv/
+.coverage
+htmlcov/
+.pytest_cache/
+dist/
+build/
+*.egg-info/
+.DS_Store
+.env
+.env.*
+# Local execution transcripts, task briefs, and diagnostics are never source.
+.local/
+.state/
+artifacts/
