@@ -124,6 +124,28 @@ rejection followed by same-session rework, user feedback, monitoring loss, unkno
 submission, failure, cancellation requests and stale acceptance. No offline
 fixture was used to create a native acceptance receipt.
 
+## Account route follow-up
+
+The user authorized using their Claude subscription for the remaining live
+checks. With the existing user settings loaded, the pinned CLI reported an
+`oauth_token` login, but those settings contain a custom provider URL and auth
+token. That status alone therefore did not establish a Claude subscription login.
+The same read-only check with `--setting-sources project,local` reported
+`loggedIn: false` and `authMethod: none`.
+
+The official `auth login --claudeai` flow was opened. The browser required account
+sign-in, so it was handed to the user. No new model request, provider setting
+change, or successful account-based execution is recorded yet. Fresh task-local
+hooks for the exact saved conversation passed the native CLI's plugin validator;
+the prior failed request remains a recorded failure and will not be resent.
+
+Desktop authentication, browser authentication and CLI authentication must be
+checked independently. For this authorized disposable-project check, the planned
+owner launch excludes user settings only for that process and explicitly chooses
+`sonnet`; the original user settings stay on disk. Excluding user settings also
+omits their permissions/hooks, so this is a development launch choice, not the
+production skill's automatic authentication policy.
+
 ## Next executable checks
 
 1. Once the current Claude provider can execute requests, resume the saved
