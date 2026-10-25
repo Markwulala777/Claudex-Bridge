@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Claudex Bridge development CLI. Diagnostic and native-view helpers only."""
+"""Claudex Bridge development CLI. Native dispatch remains acceptance-gated."""
 import argparse
 import json
 import sys
@@ -30,7 +30,20 @@ def main(argv=None):
     desktop.add_argument("--resources", help="Installed Claude Desktop resources directory")
     desktop_open = commands.add_parser("open-claude-desktop-view", help="Open a prepared follower only when the normal Desktop is closed")
     desktop_open.add_argument("--directory", required=True)
+    from workflow_cli import register, run
+    register(commands)
     args = parser.parse_args(argv)
+    if args.command.startswith("task-") or args.command == "prepare-claude-owner":
+        try:
+            result = run(args)
+        except (OSError, ValueError, RuntimeError, KeyError) as exc:
+            print(json.dumps({"error": str(exc), "status": "attention_required",
+                              "message": "Inspect saved task state; an error never authorizes resubmission."}, ensure_ascii=False))
+            return 2
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        if args.command == "task-test" and (result.get("exit_code") != 0 or result.get("timed_out") or result.get("launch_error")):
+            return 2
+        return 2 if result.get("status") in ("blocked", "detached", "failed", "interrupted", "review_stale") else 0
     if args.command != "doctor":
         import native_view
         try:

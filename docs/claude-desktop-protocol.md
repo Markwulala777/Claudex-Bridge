@@ -1,8 +1,9 @@
 # Claude Desktop follower development adapter
 
 This is a removable Linux copy of Desktop **3.6556.1** bound to one existing
-Claude Code **2.1.295** transcript. It has not passed actual native UI acceptance.
-It is not the reverse executor or the complete bridge.
+Claude Code **2.1.295** transcript. Actual history and a live quota-failure path
+were observed on 2026-10-26; successful native workflow acceptance is still pending.
+It is a viewer; the separate native TUI owner adapter executes tasks.
 
 ## Preparation and rollback
 
@@ -57,8 +58,9 @@ view unavailable and stop its reader. They never report the owner as completed.
 
 ## Remaining native acceptance
 
-The source currently supports transcript replay only. It does not provide reliable
-owner running/completed/permission state. The native schema requires an
+The source supports transcript replay plus optional exact native hook evidence
+through `owner_state_dir`. Committed real turn events drive running/idle/failed/stopped;
+unclaimed or inconsistent evidence yields unknown. Without that binding, the native schema requires an
 `isRunning` boolean; this passive display uses `false`, omits `turnRunning`, and
 identifies owner state as unknown. That UI field must not drive task state or
 acceptance. Native history/event hydration races still require real validation
@@ -68,6 +70,12 @@ On 2026-10-25 a copy was prepared from the actual installation. After permission
 to quit idle sessions, the original client's quit dialog reported a background
 command still running, despite its registry saying idle. Quit was cancelled; no
 copy launch or new model request occurred. Original Desktop remained running.
+
+On 2026-10-26 normal quit succeeded. The copy displayed real history and appended
+a newly dispatched peer brief and its provider quota failure. A subsequent copy
+bound to the real hook evidence rendered failure with its busy indicator cleared.
+Only one native TUI executor existed. The copy closed and the original client
+was restored. Successful live tool activity and active-turn hydration remain open.
 
 Offline tests exercise the actual pure core, loader and source process, ASAR
 rewriting, fixed binding and patched factory. The core's session views were also

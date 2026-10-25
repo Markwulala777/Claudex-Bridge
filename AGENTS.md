@@ -28,6 +28,13 @@ old state directory and lock so two names cannot start competing main workers.
 They are not the finished bidirectional, three-surface runner. Keep the installed
 `codex-worker` usable while the new native adapters are blocked.
 
+`workflow.py`, `task_state.py`, `git_evidence.py` and the native owner adapters
+provide the new Linux development workflow. Normal CLI dispatch remains
+acceptance-gated. Command/evidence semantics are maintained in
+`skills/claudex-bridge/references/workflow.md`. Claude Desktop history and one live
+provider-failure path were observed on 2026-10-26; successful native loops are
+still blocked by provider quota and unverified native scenarios.
+
 ## Validation
 
 Use Python 3.9+ and the standard library. Run:
@@ -50,5 +57,5 @@ credentials, diagnostic reports, or task state.
 Claude Desktop's removable copy uses the existing profile exclusively; never
 launch it alongside the normal client. A registry `idle` value does not prove
 background commands have stopped. Honor the native quit confirmation and preserve
-unrelated work. The prepared copy and offline tests do not establish native UI
-attachment or successful live execution.
+unrelated work. Preparing a copy or passing offline tests does not establish native
+UI attachment or successful live execution; consult the actual validation record.

@@ -205,6 +205,7 @@ class DesktopPrepareTests(unittest.TestCase):
         expected = {"adapter/binding.json", "adapter/claude_desktop_loader.js", "adapter/claude_desktop_follower.js",
                     "adapter/claude_desktop_source.py", "adapter/claude_vscode_proxy.py", "app/claude-desktop",
                     "app/resources/app.asar"}
+        expected.add("adapter/claude_owner.py")
         self.assertEqual(set(metadata["files"]), expected)
         for relative, digest in metadata["files"].items():
             path = self.output / relative

@@ -81,6 +81,7 @@ class Binding:
     history: str = "native"
     start_offset: Optional[int] = None
     ready_file: Optional[Path] = None
+    owner_state_dir: Optional[Path] = None
 
     @classmethod
     def load(cls, path: str, check_ready_file: bool = True) -> "Binding":
@@ -119,8 +120,13 @@ class Binding:
                 raise ProtocolError("ready_file must be an absolute new file path")
             if (check_ready_file and os.path.lexists(ready)) or not Path(ready).parent.is_dir():
                 raise ProtocolError("ready_file must not already exist and its parent must exist")
+        owner = obj.get("owner_state_dir")
+        if owner is not None and (not isinstance(owner, str) or not Path(owner).is_absolute()
+                                  or not Path(owner).is_dir()):
+            raise ProtocolError("owner_state_dir must be an absolute existing owner directory")
         return cls(session_id, Path(source_value), fmt, version, history, offset,
-                   Path(ready) if ready is not None else None)
+                   Path(ready) if ready is not None else None,
+                   Path(owner) if owner is not None else None)
 
 
 def validate_invocation(argv: List[str], binding: Binding, config_probe: bool = False) -> None:

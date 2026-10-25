@@ -381,14 +381,14 @@ def report(home=None, platform=None, env=None):
     # present socket, or enabled cached feature cannot create a missing adapter.
     capability_blockers = [
         {"code": "claude_native_follow",
-         "reason": "Claude Desktop attachment, running-history handoff, and successful live model progress remain unverified.",
-         "next": "Complete the native Desktop path and verify the implemented VS Code follower with one successful owner."},
+         "reason": "Claude Desktop history and a live failure were observed; successful tool activity and running-history handoff remain unverified.",
+         "next": "Verify all three native views with one successful Claude owner after its provider is usable."},
         {"code": "native_workflow_acceptance",
-         "reason": "Read-only native-view components do not yet establish the complete dispatch/revision/recovery workflow.",
+         "reason": "The implemented workflow has offline coverage but has not passed complete native dispatch/revision/recovery acceptance.",
          "next": "Use the version-pinned adapters to validate native views throughout both full acceptance loops."},
         {"code": "bidirectional_acceptance",
          "reason": "The reverse executor and full Claude/Codex acceptance loops have not passed native integration tests.",
-         "next": "Implement the reverse adapter after the native-attachment gate; test same-session revision and recovery."},
+         "next": "Validate both implemented owner adapters with same-session native revision and recovery."},
     ]
     capabilities = {name: IMPLEMENTATION_CAPABILITIES.get(name) is True
                     for name in (item["code"] for item in capability_blockers)}
@@ -430,9 +430,11 @@ def report(home=None, platform=None, env=None):
                              "required_scenarios": list(ACCEPTANCE_SCENARIOS)},
         "development_evidence": {
             "basis": "recorded_development_checks_not_a_probe_of_this_computer",
-            "date": "2026-10-25", "reference": "docs/native-validation.md",
+            "date": "2026-10-26", "reference": "docs/native-validation.md",
             "codex_tui": "real_desktop_owner_history_and_live_updates_observed",
-            "claude_vscode": "real_quota_failure_history_and_follower_handshake_observed",
+            "claude_vscode": "real_peer_task_and_quota_failure_rendered_in_native_panel",
+            "claude_desktop": "real_history_live_peer_task_and_failure_rendered_without_second_inference",
+            "claude_owner": "native_request_marker_turn_identity_and_error_completion_observed",
             "full_bridge_verified": False,
         },
         "evidence_limits": [

@@ -15,6 +15,28 @@ import claude_vscode_history as history
 from claude_vscode_proxy import Binding, Follower, ProtocolError
 
 
+# Portable UI doubles retain the pinned native constructor/filter/map anchors.
+# The installed-source test below also executes the actual QH/Bv0/IS/eD0 bodies.
+NATIVE_PEER_UI = r'''
+class m8 {constructor(content){this.content=content}}
+class xX {constructor(type,content,options){this.type=type;this.content=content;Object.assign(this,options)}}
+const rB="synthetic"; const kw=value=>value;
+function QH($){
+let J=false,Z,X=false,Y=$.parent_tool_use_id,Q=Y,z=$.isSynthetic,G=$.origin,q=false,V=false;
+let W=typeof $.message.content==="string"?[new m8({type:"text",text:$.message.content})]:$.message.content.map(c=>new m8(c));
+__CREATE__
+}
+function Bv0($){return false}
+function SI($){return Bv0($)}
+function G$(content){return {type:"text",text:content.text}}
+function zD0(row,content){return G$(content)}
+function QD5({message:Z,readOnly:V}){let K=[...Z.content].reverse(),A=K.map((y)=>V?zD0(Z,y.content):G$(y.content));return A}
+function IS($,J,Z,X,Y,Q,z,G,q,V){let U=V?.readOnly??false;
+if(J.isSynthetic&&(U||!SI(J)))return null;
+return QD5({message:J,readOnly:U});}
+'''.replace("__CREATE__", history.WEBVIEW_PEER_CREATE_ANCHOR)
+
+
 # The relevant native receive-loop structure: rendering exceptions are skipped
 # per frame, transport errors reach error.value, and EOF/restart clears process
 # state while retaining the session's messages. UI/model internals are doubles.
@@ -42,7 +64,8 @@ __COMMIT__
 }}catch(Y){this.error.value=Y instanceof Error?Y.message:String(Y)}finally{this.resetPerProcessState()}}
 }
 '''.replace("__READ_LOOP__", history.WEBVIEW_READ_ANCHOR).replace(
-    "__COMMIT__", history.WEBVIEW_COMMIT_ANCHOR).encode("utf-8")
+    "__COMMIT__", history.WEBVIEW_COMMIT_ANCHOR)
+NATIVE_SESSION = (NATIVE_SESSION + NATIVE_PEER_UI).encode("utf-8")
 
 
 class WebviewPatchValidationTests(unittest.TestCase):
@@ -63,6 +86,16 @@ class WebviewPatchValidationTests(unittest.TestCase):
         with mock.patch.object(history, "WEBVIEW_SOURCE_SHA256", hashlib.sha256(source).hexdigest()):
             with self.assertRaisesRegex(ValueError, "exactly one"):
                 history.patch_webview(source, self.SESSION)
+
+    def test_each_native_peer_anchor_must_exist_exactly_once(self):
+        for anchor in (history.WEBVIEW_PEER_CREATE_ANCHOR, history.WEBVIEW_PEER_CLASSIFY_ANCHOR,
+                       history.WEBVIEW_PEER_FILTER_ANCHOR, history.WEBVIEW_PEER_CONTENT_ANCHOR):
+            for source in (NATIVE_SESSION.replace(anchor.encode(), b"missing"),
+                           NATIVE_SESSION + anchor.encode()):
+                with self.subTest(anchor=anchor[:35]), mock.patch.object(
+                        history, "WEBVIEW_SOURCE_SHA256", hashlib.sha256(source).hexdigest()):
+                    with self.assertRaisesRegex(ValueError, "exactly one"):
+                        history.patch_webview(source, self.SESSION)
 
     def test_session_id_is_validated_before_patching(self):
         with self.assertRaises(ProtocolError):
@@ -201,6 +234,35 @@ console.log(JSON.stringify({count:model.messages.length,attempts:model.renderAtt
                              [self.assistant("fail once")])
         self.assertEqual(actual, {"count": 1, "attempts": 2, "skipped": ["Renderer failed"]})
 
+    def test_only_exact_bound_peer_objects_use_native_peer_ui_without_content_mutation(self):
+        body = "Another Claude session sent a message:\n[claudex-request:fixture]\n真实派工正文\n<literal>"
+        peer = {"type": "user", "session_id": self.SESSION, "uuid": self.USER,
+                "isSynthetic": True, "parent_tool_use_id": None,
+                "origin": {"kind": "peer", "from": "uds:/fixture.sock", "verifiedPeerPid": 123},
+                "message": {"role": "user", "content": body}}
+        nonpeer = {**peer, "uuid": self.ASSISTANT, "origin": {"kind": "plugin"}}
+        subagent = {**peer, "uuid": "00000000-0000-4000-8000-000000000013",
+                    "origin": {**peer["origin"], "senderTaskId": "child"}}
+        result = self.run_js('''const before=JSON.stringify(data),model=new NativeSession(sessionId);
+await model.readMessages(data,"bound");
+const rows=data.map(frame=>QH(frame));
+const other=JSON.parse(JSON.stringify(data[0]));other.session_id="''' + self.OTHER + '''";
+const otherModel=new NativeSession(other.session_id);await otherModel.readMessages([other],"other");
+const otherRow=QH(other),sameIdUnboundRow=QH(JSON.parse(JSON.stringify(data[0])));
+const render=(row,readOnly)=>IS(model,row,"row",{},false,null,null,null,null,{readOnly});
+console.log(JSON.stringify({normal:render(rows[0],false),readOnly:render(rows[0],true),
+hidden:[rows[1],rows[2],otherRow,sameIdUnboundRow].map(row=>render(row,false)),
+sameText:rows[0].content[0].content.text===data[0].message.content,
+sameOrigin:rows[0].origin===data[0].origin,synthetic:rows[0].isSynthetic,unchanged:before===JSON.stringify(data)}));''',
+                             [peer, nonpeer, subagent])
+        for mode in ("normal", "readOnly"):
+            self.assertEqual(result[mode][0]["type"], "peerMessage")
+            self.assertEqual(result[mode][0]["message"]["kind"], "cross-session")
+            self.assertEqual(result[mode][0]["message"]["body"], body)
+            self.assertEqual(result[mode][0]["originalText"], body)
+        self.assertEqual(result["hidden"], [None, None, None, None])
+        self.assertTrue(all(result[key] for key in ("sameText", "sameOrigin", "synthetic", "unchanged")))
+
     def test_wrong_frame_session_cannot_switch_bound_native_model(self):
         actual = self.run_js('''const model=new NativeSession(sessionId);
 await model.readMessages(data,"channel");
@@ -209,6 +271,90 @@ console.log(JSON.stringify({count:model.messages.length,closed:model.closed,erro
         self.assertEqual(actual["count"], 0)
         self.assertEqual(actual["closed"], ["channel"])
         self.assertIn("different session identity", actual["error"])
+
+
+@unittest.skipUnless(shutil.which("node"), "Node is needed to execute installed native UI functions")
+class InstalledNativePeerUITests(unittest.TestCase):
+    def test_installed_pinned_functions_render_real_peer_text_and_keep_other_rows_hidden(self):
+        candidates = (Path.home() / ".vscode/extensions").glob(
+            "anthropic.claude-code-2.1.295-*/webview/index.js")
+        source_path = next((path for path in candidates
+                            if hashlib.sha256(path.read_bytes()).hexdigest() == history.WEBVIEW_SOURCE_SHA256), None)
+        if source_path is None:
+            self.skipTest("Pinned official 2.1.295 webview is not installed")
+        session_id = "00000000-0000-4000-8000-000000000001"
+        patched = history.patch_webview(source_path.read_bytes(), session_id).decode("utf-8")
+        harness = r'''
+const fs=require('fs'),vm=require('vm'),assert=require('assert/strict');
+const data=JSON.parse(fs.readFileSync(0,'utf8')),original=fs.readFileSync(data.path,'utf8');
+new vm.Script(data.patched); // Parse the full patched official bundle without running the application.
+function cut(source,start,end){
+ const a=source.indexOf(start),b=source.indexOf(end,a+start.length);
+ assert(a>=0&&b>a,'missing installed function boundary '+start);return source.slice(a,b);
+}
+function check(source,patched){
+ const mapStart='A=K.map((y)=>',mapAt=source.indexOf(mapStart,source.indexOf('QD5=Rq(function'));
+ const mapping=source.slice(mapAt,source.indexOf(',j=""',mapAt));
+ assert(mapping.startsWith(mapStart));
+ const modelCode=[
+ 'const UI="agent-message",pA="cross-session-message",Ew="channel";',
+ 'class m8{constructor(content){this.content=content}}',
+ 'class xX{constructor(type,content,options){this.type=type;this.content=content;Object.assign(this,options)}}',
+ 'const P0=value=>value,kw=value=>value,rB="synthetic";',
+ 'const x=()=>[false,()=>{}],zy1=v=>v,K91=v=>v,F91=(v,n)=>v.slice(0,n),sx=80,lQ=v=>v,iq="chevron",_3={};',
+ 'const F=(type,props)=>typeof type==="function"?type(props):({type,props}),R=F;',
+ 'function G$(content){return {type:"text",text:content.text}}function zD0(row,content){return G$(content)}',
+ cut(source,'var rv1=','var eI0='),
+ cut(source,'var ig=','var $y1='),
+ cut(source,'function Cw(','var hk0='),
+ cut(source,'function QH(','function dv1('),
+ cut(source,'function SI(','function D31('),
+ cut(source,'function Bv0(','function Kv0('),
+ cut(source,'function IS(','function GD5('),
+ cut(source,'function eD0(','function $A0('),
+ 'function QD5({message:Z,readOnly:V}){let K=[...Z.content].reverse(),'+mapping+
+ ';return A.map(e=>e.type==="peerMessage"&&Cw(Z.origin,e.message)?eD0({message:e.message,originName:Z.origin.name,onToggle:()=>{}}):e)}',
+ ].join('\n');
+ const assertions=String.raw`
+ const body="Another Claude session sent a message:\n[claudex-request:fixture]\n真实正文 <literal>\n\nOriginal native notice.";
+ const frame={type:"user",session_id:sessionId,uuid:"peer-row",parent_tool_use_id:null,isSynthetic:true,
+  origin:{kind:"peer",from:"uds:/fixture.sock",verifiedPeerPid:123},message:{role:"user",content:body}};
+ const before=JSON.stringify(frame),model={sessionId:{value:sessionId},pastedContentId:{value:null},cwd:{value:"/fixture"}};
+ __claudexBridgeReplayCheck(model,frame,sessionId);
+ const row=QH(frame),render=(r,readOnly)=>IS(model,r,"row",{},false,null,null,null,null,{readOnly});
+ assert.equal(xw(body),null); // The actual pinned parser rejects the TUI's legacy envelope.
+ if(patched){
+   assert.equal(SI(row),true);
+   for(const readOnly of [false,true]){
+     const tree=render(row,readOnly);assert.equal(tree[0].type,"details");
+     const children=tree[0].props.children;
+     assert.equal(children.at(-1).props.children,body);
+     assert.equal(children[0].props.children[0].props.children,"Message from @peer:");
+   }
+ }else{assert.equal(SI(row),false);assert.equal(render(row,false),null);assert.equal(render(row,true),null)}
+ assert.equal(row.isSynthetic,true);assert.equal(row.origin,frame.origin);assert.equal(JSON.stringify(frame),before);
+ const other=JSON.parse(before);other.session_id="00000000-0000-4000-8000-000000000002";
+ assert.equal(render(QH(other),false),null); // Same UUID/body in another model is not enrolled.
+ const plugin={...frame,uuid:"plugin-row",origin:{kind:"plugin"}};
+ __claudexBridgeReplayCheck(model,plugin,sessionId);assert.equal(render(QH(plugin),false),null);
+ const child={...frame,uuid:"child-row",origin:{kind:"peer",senderTaskId:"child"}};
+ __claudexBridgeReplayCheck(model,child,sessionId);assert.equal(render(QH(child),false),null);
+ `;
+ vm.runInNewContext(data.helper+'\n'+modelCode+'\n'+assertions,
+   {assert,sessionId:data.session,patched},{timeout:2000});
+}
+check(original,false);check(data.patched,true);
+console.log(JSON.stringify({originalHidden:true,patchedNativePeer:true,bodyPreserved:true,otherRowsHidden:true}));
+'''
+        result = subprocess.run(
+            [shutil.which("node"), "-e", harness],
+            input=json.dumps({"path": str(source_path), "patched": patched,
+                              "helper": history._WEBVIEW_HELPER, "session": session_id}),
+            capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), {
+            "originalHidden": True, "patchedNativePeer": True,
+            "bodyPreserved": True, "otherRowsHidden": True})
 
 
 if __name__ == "__main__":

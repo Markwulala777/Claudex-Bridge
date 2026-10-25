@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Read one verified Claude transcript for the Desktop follower, without a model.
 
-Only actual source messages are emitted. EOF, API-error text and process existence
-are not execution-state observations. The native desktop's owner state therefore
-remains unknown until a separate execution adapter can supply authoritative events.
+Only actual source messages are emitted. An optional exact-session native hook
+binding supplies owner state; EOF and API-error text never establish completion.
 """
 import argparse
 import json
@@ -22,7 +21,16 @@ def stream(binding_path, output=sys.stdout):
         raise ProtocolError("Desktop source requires one transcript with replay history")
     follower = Follower(binding)
     sequence = 0
+    owner_state = None
     try:
+        def observed_state():
+            if binding.owner_state_dir is None:
+                return None
+            from claude_owner import OwnerError, view_state
+            try:
+                return view_state(binding.owner_state_dir, binding.session_id)["state"]
+            except (OwnerError, OSError, ValueError) as exc:
+                raise ProtocolError("Bound owner lifecycle is unavailable: " + str(exc)) from None
         identity = ":".join(str(part) for part in follower.tail.identity)
         def emit(kind, messages):
             nonlocal sequence
@@ -30,18 +38,23 @@ def stream(binding_path, output=sys.stdout):
                 "kind": kind, "session_id": binding.session_id,
                 "source_identity": identity, "claude_code_version": binding.claude_code_version,
                 "sequence": sequence, "messages": messages,
+                **({"owner_state": owner_state} if owner_state is not None else {}),
             }, ensure_ascii=False, separators=(",", ":"))
             if len(frame.encode("utf-8")) > MAX_FRAME_BYTES:
                 raise ProtocolError("Desktop transcript snapshot/batch exceeds the supported 16 MiB frame limit")
             output.write(frame + "\n")
             output.flush()
             sequence += len(messages)
+        owner_state = observed_state()
         emit("snapshot", follower.replay)
         follower.replay = []
         follower.initialized = True
         while True:
             messages = follower.poll()
-            if messages:
+            current_state = observed_state()
+            changed = current_state != owner_state
+            owner_state = current_state
+            if messages or changed:
                 emit("append", messages)
             time.sleep(0.1)
     finally:

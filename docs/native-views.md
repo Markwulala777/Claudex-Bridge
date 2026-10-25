@@ -1,7 +1,7 @@
 # Development commands for native views
 
-These commands attach read-only views. They do not implement the bidirectional
-dispatch/review loop and are not an installer for the released skill. They were
+These commands attach read-only views. The separate [workflow interface](../skills/claudex-bridge/references/workflow.md)
+handles dispatch/review state; these helpers are not an installer for the released skill. They were
 checked on Linux only. See [actual validation](native-validation.md) before using
 the observations as evidence of support.
 
@@ -84,11 +84,14 @@ for its same session; it cannot silently switch its binding or client version.
 Close only test windows and processes you created. Remove their private profile
 directories when no longer needed; keep the original owner transcript intact.
 
-## Claude Desktop copy — native UI not yet verified
+## Claude Desktop copy — history and real failure observed
 
 Use a `history: "replay"`, `source_format: "transcript"` binding for producer
 2.1.295. The currently supported Desktop build is 3.6556.1 on Linux. The output
 directory must be new and its parent must already exist.
+An optional `owner_state_dir` in the binding points to the exact native Claude
+hook directory. It supplies running/failure/stop state from real lifecycle events;
+without it, the viewer labels execution state unknown. It does not start Claude.
 
 ```sh
 python3 skills/claudex-bridge/scripts/bridge.py prepare-claude-desktop-view \

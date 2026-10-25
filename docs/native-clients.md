@@ -120,11 +120,12 @@ does not use the gated CLI-tail path, adopt ownership, or launch another Claude.
 Its native route is `/epitaxy/local_<exact CLI session UUID>`.
 
 The copy preserves the normal profile/login and refuses to run while the original
-Desktop is open. After authorization to quit idle sessions, the native quit dialog
-reported one session with a running background command. Quit was cancelled; the
-copy has not been launched. Offline factory, schema, transport and lifecycle tests
-passed, but actual native rendering and the running-history handoff remain
-unverified. See [Desktop adapter contract](claude-desktop-protocol.md).
+Desktop is open. On 2026-10-25 its quit dialog reported a background command and
+quit was cancelled. On 2026-10-26 normal quit succeeded: the copy displayed the
+bound history and automatically appended a real native peer task and provider
+quota failure. A lifecycle-bound view then displayed that turn as no longer
+running. The original client was restored. Successful active-turn hydration still
+needs validation. See [Desktop adapter contract](claude-desktop-protocol.md).
 
 ### Official VS Code panel
 
@@ -151,7 +152,9 @@ Its offline native receive-loop regression no longer doubles messages on replay;
 the patched panel also displayed the real failed session once. The host still
 reads native history for diff metadata, and transcript-only observation still
 lacks faithful token, permission and turn-completion events. A successful active
-owner and full native reconnect workflow remain to be observed.
+owner and full native reconnect workflow remain to be observed. The exact-session
+webview patch also preserves and displays legacy TUI peer envelopes through the
+native peer component; the actual panel displayed the full real dispatch brief.
 
 ### Native terminal and provider
 
@@ -160,10 +163,11 @@ it is not a general passive follower for an SDK process. `--sdk-url` is limited 
 print/stream-JSON mode. `--desktop` transfers execution toward Desktop and is not
 combinable with `--bg` in the observed CLI.
 
-A candidate uses an interactive TUI as the single executor, the implemented VS
-Code stdio proxy, and the removable Desktop read-only API adapter. It still depends on the
-unverified Desktop UI, a coordinated running-history handoff and actual successful
-owner events. It is not yet an implemented three-surface architecture.
+The implementation uses an interactive TUI as the single executor, the VS Code
+stdio proxy, and the removable Desktop read-only API adapter. Native peer dispatch
+and task-local function hooks correlate the request to the real turn and its
+completion reason. One actual error path has passed. Successful tool activity,
+active-history handoff and the complete acceptance loop remain unverified.
 
 The current Claude setup has a base-URL override. Remote Control's official-endpoint
 requirements do not establish compatibility with this setup. No endpoint or login

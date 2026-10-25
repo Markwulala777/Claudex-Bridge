@@ -5,7 +5,8 @@ description: 准备 Claude 与 Codex 的双向派工、验收和返工，检查�
 
 # Claudex Bridge
 
-本 Skill 处于开发阶段，尚不提供已验证的双向三端执行。不要因为文件存在、
+本 Skill 处于开发阶段。双向派工、验收和返工状态机已实现，成功的原生三端闭环仍未验收。
+不要因为文件存在、
 CLI 已登录、共享历史可读或旧执行器能运行，就宣布完整桥接可用。
 
 ## 先检查
@@ -24,7 +25,7 @@ python3 <skill-directory>/scripts/bridge.py doctor --json
 本机完整验收通过后可以启用 Linux 开发版；`release_ready` 和
 `doctor --require-release` 单独约束三平台验收与 GitHub 发布。不要用本机通过
 推断其他平台支持。验收记录必须匹配本机、客户端版本和当前实现，不能手写
-“通过”来开启缺失功能。开发用查看器仍不具备派工与验收能力。
+“通过”来开启缺失功能。查看器只负责显示；原生适配器执行任务，发起方负责验收。
 
 ## 主角色与子代理
 
@@ -36,6 +37,10 @@ python3 <skill-directory>/scripts/bridge.py doctor --json
 - 子代理不得反向唤起另一端或递归调用桥。执行方及其子代理不得批准自己的交付。
 
 ## 完整桥接通过验收后的工作约束
+
+命令、状态与证据格式见 [workflow.md](references/workflow.md)。只有本机完整验收
+通过后才能执行 `task-dispatch`；该命令本身也检查门槛。`task-watch` 只恢复原轮次，
+不发送新任务。不要直接调用内部 Python API 绕过未通过的原生接入条件。
 
 用户明确实施后，在授权范围内推进。保存项目、任务书、需求版本、两个主会话
 编号、精确执行轮次和每轮验收记录。相同任务返工和反馈继续原会话；独立需求新建。
@@ -53,4 +58,5 @@ python3 <skill-directory>/scripts/bridge.py doctor --json
 
 不修改供应商、登录、CC Switch、全局或项目规则。当前复用的 `worker.py` /
 `desktop_bridge.py` 只覆盖旧的 Linux Claude → Codex 桌面方向，不能用于宣称
-新 Skill 的完整双向能力；也不要新建状态目录来绕过旧执行器的单任务锁。
+新 Skill 的完整双向能力。新的 `workflow.py` 使用同一状态根和同一 `worker.lock`，
+验收绑定需求、执行轮次、最终文件快照及实际测试结果。不要新建状态目录绕过单任务锁。

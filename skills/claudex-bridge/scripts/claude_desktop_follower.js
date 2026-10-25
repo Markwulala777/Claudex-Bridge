@@ -84,9 +84,8 @@ class NativeDesktopFollower {
       // For unknown, this is only a disabled busy indicator, not an owner-idle
       // assertion. The authoritative state remains ownerState === 'unknown'.
       isRunning: this.ownerState === "running",
-      ...(this.ownerState === "unknown"
-        ? { footerIndicator: "Read-only follower: owner execution state unknown" }
-        : { turnRunning: this.ownerState === "running" }),
+      footerIndicator: `Read-only follower: owner ${this.ownerState === "unknown" ? "execution state unknown" : this.ownerState}`,
+      ...(this.ownerState === "unknown" ? {} : { turnRunning: this.ownerState === "running" }),
       isArchived: false, cliRowsFromElsewhere: true, processCliVersion: b.claude_code_version,
       ...(this.unavailable ? { transcriptUnavailable: true } : {}),
       ...(b.title === undefined ? {} : { title: b.title }),

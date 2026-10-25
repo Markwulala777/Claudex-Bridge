@@ -126,7 +126,11 @@ class NativeViewTests(unittest.TestCase):
         original = self.extension / "extension.js"
         original.write_bytes(source)
         webview_source = (claude_vscode_history.WEBVIEW_READ_ANCHOR +
-                          claude_vscode_history.WEBVIEW_COMMIT_ANCHOR).encode()
+                          claude_vscode_history.WEBVIEW_COMMIT_ANCHOR +
+                          claude_vscode_history.WEBVIEW_PEER_CREATE_ANCHOR +
+                          claude_vscode_history.WEBVIEW_PEER_CLASSIFY_ANCHOR +
+                          claude_vscode_history.WEBVIEW_PEER_FILTER_ANCHOR +
+                          claude_vscode_history.WEBVIEW_PEER_CONTENT_ANCHOR).encode()
         webview = self.extension / "webview"
         webview.mkdir()
         (webview / "index.js").write_bytes(webview_source)

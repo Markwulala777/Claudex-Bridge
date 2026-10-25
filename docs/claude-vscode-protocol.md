@@ -229,6 +229,17 @@ owner progress and an actual same-model channel restart remain separate checks.
 
 ## Verification performed and work still required
 
+On 2026-10-26 a newly dispatched real peer task exposed a native filter mismatch:
+the TUI wrote a legacy plain-text envelope with `origin.kind: peer` and `isMeta`,
+while the webview recognized only the newer tagged envelope. The pinned isolated
+patch now marks exact bound SDK frame objects and their native rows with WeakSets,
+then routes those rows through the native peer grouping/filter/content path.
+It preserves `isSynthetic`, origin, UUID and the full body; it does not relabel a
+peer as a human. Other sessions, even with the same UUID/body, remain unaffected.
+The actual panel displayed the full dispatch under `Message from @peer` after
+expansion. The real error appended without refresh. No successful model turn was
+observed because the existing provider again returned a quota error.
+
 On 2026-10-25 the real bundled CLI was started once in a temporary directory with
 temporary HOME/config directories, no setting sources, empty strict MCP config,
 no credentials copied, and nonessential traffic disabled. Only `initialize` and

@@ -134,7 +134,7 @@ def prepare(directory, project, binding_path, resources=None):
         raise ViewError("Expected the installed Linux Desktop executable")
     scripts = Path(__file__).resolve().parent
     files = ("claude_desktop_loader.js", "claude_desktop_follower.js",
-             "claude_desktop_source.py", "claude_vscode_proxy.py")
+             "claude_desktop_source.py", "claude_vscode_proxy.py", "claude_owner.py")
     for name in files:
         if not (scripts / name).is_file():
             raise ViewError("Desktop follower component is missing: " + name)
@@ -163,6 +163,8 @@ def prepare(directory, project, binding_path, resources=None):
             "source_format": binding.source_format, "claude_code_version": binding.claude_code_version,
             "history": binding.history, "desktop_version": VERSION, "cwd": str(project),
         }
+        if binding.owner_state_dir is not None:
+            data["owner_state_dir"] = str(binding.owner_state_dir)
         write_private(sealed_binding, data)
         app = directory / "app"
         app.mkdir(mode=0o700)

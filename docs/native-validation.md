@@ -1,6 +1,6 @@
 # Native validation record
 
-Date: 2026-10-25. Host: Linux. VS Code: 1.143.1. This records checks actually
+Updated: 2026-10-26 (Asia/Taipei). Host: Linux. VS Code: 1.143.1. This records checks actually
 performed during development, not an automatic claim about another computer.
 Session IDs, transcripts, screenshots, provider endpoints and credentials are
 not included in the repository.
@@ -9,10 +9,10 @@ not included in the repository.
 | --- | --- | --- |
 | Codex Desktop → native TUI | Real history and new assistant/tool output rendered through the read-only gateway | Version-pinned Linux adapter; forms stay with the owner |
 | Codex Desktop + TUI + official VS Code | The same existing conversation was observed in all three native surfaces at the same time | Does not establish the complete bridge workflow |
-| Claude native TUI | One real temporary-project request used the existing provider and failed with HTTP 403, insufficient quota | No implementation, tests or revision executed |
-| Claude official VS Code follower | Same temporary session and quota-error text visibly rendered, including with isolated replay patches; reader termination displayed a native error | Successful live output and native channel restart unverified; deduplication checked offline |
-| Claude Desktop follower | Actual version-pinned copy prepared; offline API/reader/listener tests passed | Native quit reported a running background command; quit cancelled, copy not launched; UI/history handoff unverified |
-| Bidirectional acceptance loop | Not run | Native Claude path and successful provider calls required |
+| Claude native TUI | New native socket request reached the original session; exact request marker → turn ID → native error completion observed | Provider again returned HTTP 403, insufficient quota; no successful implementation/revision |
+| Claude official VS Code follower | Live quota failure appended; updated native panel displayed the real peer brief with attribution and unchanged body | Successful live tool activity and native channel restart still unverified |
+| Claude Desktop follower | Actual history, live appended task/error and lifecycle-driven failure state rendered; no second inference; original client restored | Successful active-turn hydration and full native reconnect remain unverified |
+| Bidirectional acceptance loop | Shared implementation and offline integration tests passed | Successful native loop not run; Claude provider access and all native-view checks required |
 | Windows/macOS | Not run | Real machines and platform adapters required |
 
 ## Codex evidence
@@ -88,14 +88,49 @@ The adapter uses a TUI transcript producer pinned to 2.1.295; Desktop's own
 acknowledgments do not yet establish native transcript hydration. The current
 implementation cannot solve these gaps by changing Skill text.
 
+## 2026-10-26 continuation
+
+The original Desktop quit normally this time. Its removable copy opened using
+the existing profile and visibly displayed the exact temporary TUI conversation.
+Before the owner resumed, the copy ran one Python reader and no Claude inference
+process. Resuming the exact original TUI UUID restored its existing history.
+
+A task-local native hooks module was validated with the installed CLI and loaded
+with `--plugin-dir`. A committed ready event proved the actual session/version.
+One new authorized brief was sent through the native peer socket. A unique request
+marker matched a real `turn.start.turnId`, followed by `turn.complete` with
+`reason:error`, `isAborted:false` and an empty answer. The provider response was
+again HTTP 403, insufficient quota. No automatic retry or provider change followed.
+The integer-sum implementation and existing user note were still unchanged.
+
+The Desktop automatically appended the peer brief and the real error. VS Code
+automatically appended the error but initially hid the peer brief because its
+native synthetic-message filter expected a different envelope format. The isolated,
+hash-pinned webview now routes only verified bound-session peer rows through its
+native peer component. A newly opened actual panel displayed the full original
+brief and native peer wrapper under `Message from @peer`; ordinary human messages,
+subagent rows, other sessions and original installed files were not reclassified.
+
+The Desktop source can now bind the native hook directory. Reopening the copy
+with that binding showed the same failed turn without a lingering running spinner.
+The native owner process count was one. The copy then closed normally and the
+original installed Desktop executable and its normal home UI were observed again.
+These are real failure-path and view observations, not a successful coding run.
+
+The shared workflow records fixed main sessions, requirement versions, exact
+execution evidence, complete baseline-to-final Git contents, real test commands
+and review coverage. Offline integration exercised both directions, deliberate
+rejection followed by same-session rework, user feedback, monitoring loss, unknown
+submission, failure, cancellation requests and stale acceptance. No offline
+fixture was used to create a native acceptance receipt.
+
 ## Next executable checks
 
-1. When the original Desktop has no background work to preserve, launch the
-   prepared native follower and verify actual rendering, exact history handoff,
-   reconnects and single-owner behavior.
-2. Once that provider can execute requests, resume the saved temporary Claude
-   session, bind the native viewers, then verify real tool activity and completion.
-3. Implement both executor directions on the validated owner adapters; exercise
+1. Once the current Claude provider can execute requests, resume the saved
+   temporary session with verified task-local hooks and all native viewers.
+2. Verify successful tool activity, active-turn history hydration, native reconnects,
+   permissions and original-turn stopping without a second inference.
+3. Exercise the implemented owner adapters and shared workflow through
    deliberate rejection, same-session revision, user feedback and interrupted
    monitoring without duplicate execution.
 4. Enable the Linux development entrypoint only after complete local acceptance;
@@ -107,7 +142,7 @@ TUI test consumes fixtures and makes no model calls. `doctor` remains read-only
 and reports `runtime_ready: false` and `release_ready: false`; passing component
 checks does not open either gate. See [receipt semantics](acceptance-evidence.md).
 
-The combined run after these changes passed **157 tests**, including the real TUI consuming
+The combined run after these changes passed **264 tests**, including the real TUI consuming
 offline protocol fixtures:
 
 ```sh

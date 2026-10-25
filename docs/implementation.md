@@ -46,7 +46,7 @@ panel displayed that same session through the follower. See the precise
   replay in the native session model; preserve native diff metadata.
 - [x] Prepare a removable, version-pinned Linux Claude Desktop copy with a read-only
   LocalSessions API, explicit listener acknowledgments and source-failure handling.
-- [ ] Observe that Desktop copy rendering the bound conversation in its actual UI.
+- [x] Observe that Desktop copy rendering the bound conversation in its actual UI.
 - [ ] Claude: one executing session simultaneously visible in native TUI,
   native Desktop, and official VS Code panel, with the existing provider retained.
 - [x] Codex on Linux: one existing executing session simultaneously observed in
@@ -64,10 +64,12 @@ changing Skill wording.
 ## 3. Bidirectional executor and acceptance loop
 
 - [x] Specify shared role and subagent policy in the new skill.
-- [ ] Implement both directions using validated native attachments.
-- [ ] Save both main session IDs, project, requirements and review evidence.
-- [ ] Rework targets the original executor session; new requirements create new tasks.
-- [ ] Run full acceptance on actual diffs and test evidence; partial reviews do not pass.
+- [x] Implement both native owner adapters and the shared workflow, with offline integration tests.
+- [ ] Validate successful execution in both directions through all native attachments.
+- [x] Save both main session IDs, project, requirement versions and review evidence.
+- [x] Rework and feedback target the original executor session; independent tasks use new sessions.
+- [x] Bind review to complete actual diffs, unchanged snapshots and actual test evidence.
+- [ ] Run the complete successful native acceptance cycle in both directions.
 - [ ] Show final completion, acceptance, tests and real remaining issues to the user.
 
 Default revisions continue until acceptance or a concrete blocker. The user may
@@ -82,10 +84,18 @@ protection, exact conversation/turn matching, separate execution/review states,
 original-turn cancellation, and baseline capture. Offline regression tests exercise
 these paths; they are not evidence of live GUI integration.
 
-- [ ] Port and validate those invariants for the reverse adapter and native shared owner.
+- [x] Implement those invariants for both native owners and validate with offline regressions.
 - [ ] Recover a disconnected view without duplicate task submission.
 - [ ] Confirm actual terminal/GUI stopping behavior on the original execution.
 - [ ] Verify quota, permission and command failures never become accepted results.
+
+On 2026-10-26 the actual Claude TUI received a new peer task through its native
+socket. The provider again returned HTTP 403 for insufficient quota. The native
+hook matched the request marker to its real turn ID and recorded `reason:error`;
+the workflow adapter classified it as failed. Desktop displayed the appended task
+and error automatically, and a reopened Desktop view used the hook state to stop
+the busy indicator. This verifies that failure path, not the remaining success,
+permission and stop scenarios. See [workflow commands](../skills/claudex-bridge/references/workflow.md).
 
 ## 5. Platform integration and installation
 
