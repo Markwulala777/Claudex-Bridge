@@ -78,6 +78,7 @@ class ExistingDesktopSource:
                 "hostId": "local", "conversationId": self.thread_id,
             }, timeout=5)
             self.desktop.owner = reply["handledByClientId"]
+            self.desktop.allow_recent_history = True
             self.desktop.follow(True)
             self.read()
             return self
@@ -196,6 +197,12 @@ class Mirror:
             raise ProtocolError("Snapshot identity changed")
         meta = self.source.meta
         history = [normalise_turn(turn) for turn in turns(state)]
+        history_state = (state.get("turnHistory") or {}).get("history") or {}
+        self.history_complete = (history_state.get("isComplete") is not False
+                                 and (state.get("turnsPagination") or {}).get("hasLoadedOldest") is not False)
+        if any((turn.get("itemsPagination") or {}).get("hasLoadedOldest") is False
+               for turn in turns(state)):
+            raise ProtocolError("Native owner exposed incomplete turn items; cannot render them as full")
         settings = state.get("latestThreadSettings") or {}
         model = settings.get("model") or state.get("latestModel") or meta.get("model")
         provider = state.get("modelProvider") or meta.get("model_provider")
@@ -209,7 +216,8 @@ class Mirror:
             "preview": state.get("title") or "",
             # An unnamed remote thread makes TUI try an ephemeral title model.
             # This view-only fallback suppresses that request without saving a title.
-            "name": state.get("title") or "Read-only view " + self.source.thread_id,
+            "name": ("[recent history only] " if not self.history_complete else "")
+                    + (state.get("title") or "Read-only view " + self.source.thread_id),
             "model": model, "modelProvider": provider, "cwd": cwd,
             "cliVersion": meta.get("cli_version") or "unknown",
             "createdAt": created, "updatedAt": timestamp_seconds(state.get("updatedAt"), created),
@@ -398,6 +406,8 @@ class RPC:
                 if direction == "desc":
                     history.reverse()
                 cursor = params.get("cursor")
+                if cursor == "unavailable-older-history" or (direction == "asc" and not self.mirror.history_complete):
+                    raise ProtocolError("Original owner cannot load older history; current live view remains available")
                 if cursor:
                     prefix = direction + ":"
                     if not isinstance(cursor, str) or not cursor.startswith(prefix):
@@ -410,7 +420,9 @@ class RPC:
                 if type(limit) is not int or not 1 <= limit <= 1000:
                     raise ProtocolError("Invalid turn limit")
                 page = history[:limit]
-                return {"data": page, "nextCursor": direction + ":" + page[-1]["id"] if len(history) > limit else None,
+                next_cursor = (direction + ":" + page[-1]["id"] if len(history) > limit
+                               else "unavailable-older-history" if not self.mirror.history_complete else None)
+                return {"data": page, "nextCursor": next_cursor,
                         "backwardsCursor": None}
             # The native TUI includes serviceTier from local config even when
             # merely opening a remote view. A matching value is descriptive,
@@ -622,7 +634,8 @@ def serve_unix(path, mirror):
         os.chmod(path, 0o600)
         listener.listen(1)
         print(json.dumps({"endpoint": "unix://" + str(path), "thread_id": mirror.source.thread_id,
-                          "mode": "read_only_original_owner", "tui_version": TUI_VERSION}), flush=True)
+                          "mode": "read_only_original_owner", "tui_version": TUI_VERSION,
+                          "history_complete": mirror.history_complete}), flush=True)
         connection, _ = listener.accept()
         with connection:
             if hasattr(socket, "SO_PEERCRED"):

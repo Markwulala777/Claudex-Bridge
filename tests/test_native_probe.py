@@ -287,7 +287,15 @@ class NativeProbeTests(unittest.TestCase):
             fourth = probe.implementation_fingerprint()
             (scripts / "protocol.json").write_text('{"version":1}')
             fifth = probe.implementation_fingerprint()
-        self.assertEqual(len({first, second, third, fourth, fifth}), 5)
+            references = scripts.parent / "references"
+            references.mkdir()
+            (references / "workflow.md").write_text("review instructions")
+            sixth = probe.implementation_fingerprint()
+            module.chmod(0o755)
+            seventh = probe.implementation_fingerprint()
+            (scripts.parent / ".claudex-install.json").write_text('{"schema":1}')
+            self.assertEqual(probe.implementation_fingerprint(), seventh)
+        self.assertEqual(len({first, second, third, fourth, fifth, sixth, seventh}), 7)
 
     def test_doctor_cli_reports_blocked_as_nonzero(self):
         import contextlib

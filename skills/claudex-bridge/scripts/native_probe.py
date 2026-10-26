@@ -34,9 +34,9 @@ MAX_EVIDENCE = 8 * 1024 * 1024
 # A local acceptance receipt cannot enable missing implementation. Change a gate
 # only with its implementation and acceptance; the code fingerprint then changes.
 IMPLEMENTATION_CAPABILITIES = {
-    "claude_native_follow": False,
-    "native_workflow_acceptance": False,
-    "bidirectional_acceptance": False,
+    "claude_native_follow": True,
+    "native_workflow_acceptance": True,
+    "bidirectional_acceptance": True,
 }
 ACCEPTANCE_DIRECTIONS = ("claude_to_codex", "codex_to_claude")
 ACCEPTANCE_SCENARIOS = (
@@ -234,19 +234,22 @@ def host_fingerprint(home, platform, codex_home):
 
 
 def implementation_fingerprint():
-    """Invalidate acceptance after executable bridge code or skill changes."""
-    directory = Path(__file__).resolve().parent
-    paths = sorted(path for path in directory.iterdir() if path.suffix in (".py", ".js", ".json") and path.is_file())
-    skill = directory.parent / "SKILL.md"
-    if skill.is_file():
-        paths.append(skill)
+    """Bind all executable code and packaged Skill instructions, not its location."""
+    directory = Path(__file__).resolve().parent.parent
+    paths = sorted(path for path in directory.rglob("*")
+                   if path.suffix in (".py", ".js", ".json", ".md", ".yaml", ".yml")
+                   and path.name != ".claudex-install.json"
+                   and "__pycache__" not in path.parts and path.is_file())
     digest = hashlib.sha256()
     try:
         for path in paths:
             raw = path.read_bytes()
             if len(raw) > MAX_READ:
                 return None
-            digest.update(str(path.relative_to(directory.parent)).encode() + b"\0")
+            if path.is_symlink():
+                return None
+            digest.update(str(path.relative_to(directory)).encode() + b"\0")
+            digest.update(bytes([path.stat().st_mode & 0o111]))
             digest.update(hashlib.sha256(raw).digest())
         return digest.hexdigest() if paths else None
     except (OSError, ValueError):
@@ -381,13 +384,13 @@ def report(home=None, platform=None, env=None):
     # present socket, or enabled cached feature cannot create a missing adapter.
     capability_blockers = [
         {"code": "claude_native_follow",
-         "reason": "Claude Desktop history and a live failure were observed; successful tool activity and running-history handoff remain unverified.",
-         "next": "Verify all three native views with one successful Claude owner after its provider is usable."},
+         "reason": "The native Claude follower capability is not enabled in this implementation.",
+         "next": "Validate all three native views with one successful Claude owner."},
         {"code": "native_workflow_acceptance",
-         "reason": "The implemented workflow has offline coverage but has not passed complete native dispatch/revision/recovery acceptance.",
+         "reason": "Native dispatch/revision/recovery acceptance is not enabled in this implementation.",
          "next": "Use the version-pinned adapters to validate native views throughout both full acceptance loops."},
         {"code": "bidirectional_acceptance",
-         "reason": "The reverse executor and full Claude/Codex acceptance loops have not passed native integration tests.",
+         "reason": "Bidirectional native acceptance is not enabled in this implementation.",
          "next": "Validate both implemented owner adapters with same-session native revision and recovery."},
     ]
     capabilities = {name: IMPLEMENTATION_CAPABILITIES.get(name) is True
@@ -432,9 +435,11 @@ def report(home=None, platform=None, env=None):
             "basis": "recorded_development_checks_not_a_probe_of_this_computer",
             "date": "2026-10-26", "reference": "docs/native-validation.md",
             "codex_tui": "real_desktop_owner_history_and_live_updates_observed",
-            "claude_vscode": "real_peer_task_and_quota_failure_rendered_in_native_panel",
-            "claude_desktop": "real_history_live_peer_task_and_failure_rendered_without_second_inference",
-            "claude_owner": "native_request_marker_turn_identity_and_error_completion_observed",
+            "claude_vscode": "real_tasks_tools_tests_review_reports_and_reconnection_observed",
+            "claude_desktop": "real_tasks_tools_tests_review_reports_and_running_reconnection_observed",
+            "claude_owner": "same_session_implementation_revision_feedback_and_foreground_stop_observed",
+            "codex_owner": "same_session_revision_feedback_reconnection_and_pidfd_stop_observed",
+            "linux_native_workflow_verified": True,
             "full_bridge_verified": False,
         },
         "evidence_limits": [

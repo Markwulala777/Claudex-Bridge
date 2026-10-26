@@ -202,6 +202,9 @@ class Desktop:
         self.owner = None
         self.state = None
         self.revision = -1
+        self.snapshot_generation = 0
+        self.allow_recent_history = False
+        self.recent_history_only = False
 
     def __enter__(self):
         override = os.environ.get("CODEX_WORKER_DESKTOP_SOCKET")
@@ -288,6 +291,7 @@ class Desktop:
                     if state.get("id") != self.thread_id:
                         raise BridgeError("Desktop snapshot belongs to a different conversation")
                     self.state, self.revision = state, change["revision"]
+                    self.snapshot_generation += 1
                 # Patches are logged. Request native snapshots for status instead
                 # of implementing the desktop's evolving text/Immer patch format.
 
@@ -340,7 +344,20 @@ class Desktop:
                    "params": {"conversationId": self.thread_id, "hostId": "local", "following": following}})
 
     def snapshot(self):
-        result = self.request("thread-follower-load-complete-history", {"conversationId": self.thread_id}, target=self.owner)["result"]
+        if self.recent_history_only:
+            return self.current_snapshot()
+        try:
+            result = self.request("thread-follower-load-complete-history", {"conversationId": self.thread_id}, target=self.owner)["result"]
+        except BridgeError as exc:
+            # This pinned Desktop can call an unsupported item-pagination method
+            # after reopening a legacy thread. Preserve its honest history
+            # boundaries and read a fresh owner snapshot, never import a rollout
+            # or present the loaded tail as complete. Other failures stay closed.
+            if not self.allow_recent_history or str(exc) != (
+                    "thread-follower-load-complete-history: thread/items/list is not supported yet"):
+                raise
+            self.recent_history_only = True
+            return self.current_snapshot()
         revision = result["revision"]
         self.follow(True)  # Even an existing follower gets a full current snapshot.
         deadline = time.monotonic() + 15
@@ -348,6 +365,17 @@ class Desktop:
             message = self.receive(max(0, deadline - time.monotonic()))
             if message is None:
                 raise BridgeError("No complete desktop snapshot arrived; execution status is unknown")
+            self.handle(message)
+        return self.state
+
+    def current_snapshot(self):
+        generation = self.snapshot_generation
+        self.follow(True)
+        deadline = time.monotonic() + 15
+        while self.snapshot_generation == generation:
+            message = self.receive(max(0, deadline - time.monotonic()))
+            if message is None:
+                raise BridgeError("No fresh desktop snapshot arrived; execution status is unknown")
             self.handle(message)
         return self.state
 

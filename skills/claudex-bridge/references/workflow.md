@@ -1,9 +1,14 @@
 # Native workflow development interface
 
-Status: Linux implementation, offline regressions, and one real Claude failure
-path. Successful bidirectional native acceptance has not passed. `task-dispatch`
-checks `doctor.runtime_ready` and currently refuses execution. These instructions
-describe the implemented interface, not permission to bypass that gate.
+Status: version-pinned Linux native dispatch, rejection/revision, review, feedback,
+reconnection and foreground cancellation passed actual checks in both directions.
+`task-dispatch` still requires `doctor.runtime_ready` and a receipt bound to this
+computer, current package and clients. Windows/macOS are not supported yet.
+Prepare owners and views using [native-setup.md](native-setup.md); installing the
+Skill alone does not open them or authorize bypassing the local gate.
+After a Codex Desktop window rebuild, its pinned pagination defect can leave only
+recent native history available. Exact visible turns remain monitorable; an old
+turn absent from the fresh owner snapshot remains unknown and cannot be resent.
 
 The initiating main agent drives the loop in its existing conversation. There is
 no background reviewer, extra Claude model, or automatic self-approval. The
@@ -27,9 +32,16 @@ python3 <skill>/scripts/bridge.py prepare-claude-owner \
   --directory /absolute/new-private-owner --session-id EXACT_CLAUDE_UUID
 ```
 
-This returns `plugin_dir` and `launch_args`; it does not start Claude. Validate the
+This returns `plugin_dir`, `launch_args` and `launch_env`; it does not start Claude. Validate the
 plugin with the supported native CLI's `plugin validate`, then use the returned
-`--plugin-dir` when starting the one owner with `--resume EXACT_CLAUDE_UUID`.
+`--plugin-dir` and `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` in that process's
+environment when starting the one owner with `--resume EXACT_CLAUDE_UUID`.
+The adapter checks the actual owner's launch environment before dispatch. This
+keeps native commands in the foreground: Claude 2.1.295 otherwise backgrounds
+them on `turn.abort`, allowing work and later model turns after cancellation.
+This is a process launch requirement, not a change to user/provider settings.
+Bridge tasks must not intentionally detach commands (for example with `nohup`
+or shell `&`); stopping a native turn does not undo external jobs or side effects.
 Do not start a second owner for an already-running session. Native plugin trust,
 managed policy and feature gates still apply. A committed native `ready` event
 must prove the exact session and version before dispatch. It does not prove a

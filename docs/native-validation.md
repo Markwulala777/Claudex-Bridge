@@ -7,13 +7,12 @@ not included in the repository.
 
 | Capability | Observed result | Remaining limit |
 | --- | --- | --- |
-| Codex Desktop → native TUI | Real history and new assistant/tool output rendered through the read-only gateway | Version-pinned Linux adapter; forms stay with the owner |
-| Codex Desktop + TUI + official VS Code | The same existing conversation was observed in all three native surfaces at the same time | Does not establish the complete bridge workflow |
-| Claude native TUI | New native socket request reached the original session; exact request marker → turn ID → native error completion observed | Provider again returned HTTP 403, insufficient quota; no successful implementation/revision |
-| Claude official VS Code follower | Live quota failure appended; updated native panel displayed the real peer brief with attribution and unchanged body | Successful live tool activity and native channel restart still unverified |
-| Claude Desktop follower | Actual history, live appended task/error and lifecycle-driven failure state rendered; no second inference; original client restored | Successful active-turn hydration and full native reconnect remain unverified |
-| Bidirectional acceptance loop | Shared implementation and offline integration tests passed | Successful native loop not run; Claude provider access and all native-view checks required |
-| Windows/macOS | Not run | Real machines and platform adapters required |
+| Codex Desktop + TUI + official VS Code | Same conversation, real live tools/results; initial dispatch, revision and feedback | Desktop owns execution; native TUI/IDE views are read-only |
+| Claude TUI + Desktop + official VS Code | Same live conversation, tools/tests and initiating-agent acceptance reports; view reconnection | TUI 2.1.295 owns execution; Desktop is a removable exclusive-profile copy |
+| Persisted bidirectional loop | Both initiating main agents rejected, revised, personally reviewed actual diffs/tests and accepted user feedback | Initiator must remain active; first attachment/onboarding is explicit |
+| Cancellation | Corrected foreground probes terminated for both owners; exact interrupted turns were not accepted | Does not undo effects or guarantee external deliberately detached jobs |
+| Codex window rebuild | Same thread recovered without dispatch; fresh owner snapshots and final result returned | Pinned client's older-history pagination can fail; TUI explicitly shows recent history only |
+| Windows/macOS | Not run; user has Linux only | Platform adapters and real machines required before release |
 
 ## Codex evidence
 
@@ -133,18 +132,16 @@ token. That status alone therefore did not establish a Claude subscription login
 The same read-only check with `--setting-sources project,local` reported
 `loggedIn: false` and `authMethod: none`.
 
-The user completed the official browser authorization, but the original CLI wait
-process had already exited without saving the login. A replacement official login
-process was kept open. The browser showed the signed-in account, but its subsequent
-Claude Code authorization attempts returned the site's browser-verification error.
-The exact pending authorization page was handed back for manual completion. The
-CLI still reported no subscription login. No new model request, provider setting
-change, or successful account-based execution is recorded yet. Fresh task-local
-hooks for the exact saved conversation passed the native CLI's plugin validator;
-the prior failed request remains a recorded failure and will not be resent.
+The original login wait exited before authorization. A replacement official login
+was completed after the user manually passed browser verification. The browser
+tool then failed because its extension needed an update; the user explicitly
+authorized reading the copied one-time code locally and submitting it only to
+that login process. It exited successfully. A fresh read-only check reported
+`loggedIn: true`, `authMethod: claude.ai`, `apiProvider: firstParty` and a Pro
+subscription. No code, token or credential is stored in this repository.
 
 Desktop authentication, browser authentication and CLI authentication must be
-checked independently. For this authorized disposable-project check, the planned
+checked independently. For this authorized disposable-project check, the
 owner launch excludes user settings only for that process and explicitly chooses
 `sonnet`; the original user settings stay on disk. Excluding user settings also
 omits their permissions/hooks, so this is a development launch choice, not the
@@ -155,38 +152,163 @@ session ID. Claude checks the live owner process's working directory, and Codex
 checks the Desktop snapshot's `cwd` (observed in the actual installed protocol).
 Both recheck before sending. Regression tests verify that a wrong/missing project
 and a directory change after preflight create no native prompt or owner submission
-record. These
-checks do not establish a successful native model turn.
+record.
 
-## Next executable checks
+## Successful account execution and native views
 
-1. Once the current Claude provider can execute requests, resume the saved
-   temporary session with verified task-local hooks and all native viewers.
-2. Verify successful tool activity, active-turn history hydration, native reconnects,
-   permissions and original-turn stopping without a second inference.
-3. Exercise the implemented owner adapters and shared workflow through
-   deliberate rejection, same-session revision, user feedback and interrupted
-   monitoring without duplicate execution.
-4. Enable the Linux development entrypoint only after complete local acceptance;
-   validate Windows/macOS before publication. Keep the installed `codex-worker`
-   until the replacement's full local behavior is verified.
+The saved native TUI conversation implemented the disposable sum function and
+four basic tests. The initiating Codex read its complete actual diff and ran
+independent acceptance checks: bool and float inputs were incorrectly accepted.
+The delivery was rejected with those concrete failures. Rework in the same native
+session added type validation; all five test methods and both independent checks
+passed. Existing project rules and the pre-existing note were unchanged.
 
-Offline regressions remain separate from these observations. The optional native
-TUI test consumes fixtures and makes no model calls. `doctor` remains read-only
-and reports `runtime_ready: false` and `release_ready: false`; passing component
-checks does not open either gate. See [receipt semantics](acceptance-evidence.md).
+A third request continued that task with indexed error messages and tuple/generator
+coverage. The initiating Codex inspected every added/changed line, reran all ten
+test methods and independently checked the exact error index, empty tuple and
+single-consumption generator behavior. The final snapshot remained unchanged.
 
-The combined run after these changes passed **269 tests**, including the real TUI consuming
-offline protocol fixtures:
+During this feedback run, the actual Desktop copy and official VS Code panel
+automatically showed the peer request, Bash activity, test results and final answer
+from the one TUI owner. Desktop was normally closed and reopened while its command
+was still running; it hydrated the current activity without another submission.
+VS Code was reopened and recovered the latest result. The native session registry
+still contained exactly one matching owner PID. The original Desktop was restored
+between checks. Native X11 inspection/control was explicitly authorized by the user.
+The existing user settings file's bytes remained unchanged.
+
+The first cancellation check exposed a real limitation: default `$.turn.abort`
+ended the model turn but backgrounded its Bash command, which ran to completion
+and caused another native model turn. This was not recorded as successful stopping.
+The pinned CLI's implementation confirmed that disabling native background tasks
+keeps cancellation on its process-termination path. Owner preparation now returns
+`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1` as a process-local launch requirement;
+dispatch checks the actual owner's environment before sending any prompt.
+
+After normally resuming the same UUID with that environment and fresh hooks, an
+exact-turn stop interrupted a real 60-second command after about eight seconds.
+At the native aborted terminal event its Python process was already gone; six
+consecutive checks found it absent and the owner had no remaining children.
+Desktop displayed “已停止”; the official panel displayed the actual interrupted
+tool result. No project bytes changed. This validates foreground native commands,
+not shell-detached external jobs or undoing earlier side effects.
+
+Permission hooks now record both request and resolution, with separate identities
+even for parallel calls sharing a native dialog. The real run changed from waiting
+to running after one-time approval and then to aborted. Offline regressions cover
+parallel resolutions, unmatched events, missing/ambiguous launch environment and
+rechecking it after preflight. No permission policy was broadened.
+
+## Complete persisted Linux workflows
+
+The account checks above were followed by two actual workflow runs in disposable
+Git projects. Private task ledgers, native owner events, real transcripts,
+screenshots, complete Git delivery packets and test logs retain exact IDs.
+Development used the authorized internal workflow harness while the normal CLI
+remained acceptance-gated. Final reviews came from the actual initiating agent.
+
+**Codex → Claude:** the first integer-accumulation delivery passed 14 executor
+tests but failed the initiator's strict `start`-type check. Codex read the complete
+actual changes and rejected it. The same Claude session fixed it (15 tests).
+User feedback then made `start` keyword-only and preserved generator non-consumption
+on invalid input; 18 tests plus independent edge checks passed. Three attempts,
+two requirement versions and reviews `revise`, `pass`, `pass` ended accepted.
+Both the initiating and executing sessions stayed fixed.
+
+**Claude → Codex:** the first unique-values implementation used sorted set output.
+Claude read the complete diff and wrote independent acceptance tests: seven of
+nine checks failed. It rejected the delivery with concrete criteria. The same
+Codex session corrected strict built-in integer types, original error indexes and
+stable single-pass de-duplication; nine project tests and nine independent checks
+passed. Claude personally recorded acceptance and reported in its native TUI,
+Desktop follower and official VS Code follower.
+
+After the stop regressions below, Claude saved user feedback as requirements v4
+and dispatched attempt 6 to that same Codex. It read the complete baseline-to-final
+packet and actual files, then independently ran 13 project tests, the nine original
+acceptance checks and 38 new boundary checks. All passed on the same verified
+snapshot. The added keyword-only `reverse` validates built-in bool before consuming
+input, reverses the de-duplicated result and preserves strict element checks.
+Claude recorded `pass`, `accepted`, `acceptance_current=true` and a final Chinese
+report. Its Desktop and VS Code displayed that report; Codex's Desktop, TUI and
+VS Code displayed the executor's final actual delivery.
+
+Both projects retained their original tracked user edit, untracked notes and
+project rules. The two main roles stayed fixed. No Claude subagent or extra
+inference owner was started. Codex delegation remains allowed by policy but no
+subtask was needed, so a real Codex child delegation is not claimed as tested.
+
+Monitoring was intentionally detached and resumed on exact IDs; another dispatch
+was rejected while unresolved. Claude's real quota failure remained failed.
+Actual permission prompts were individually approved without broadening policy.
+The official account login was explicitly authorized earlier; provider settings,
+CC Switch and global rules were not rewritten by the workflow or installer.
+
+## Codex foreground stop and window recovery
+
+The first exact-turn stop probe exposed a native limitation: Desktop reported the
+turn interrupted but its 60-second command continued. That failed check is retained;
+it was never accepted as successful stopping. A diagnostic continuation only read
+the old process result and was not treated as a new successful stop test.
+
+The corrected adapter snapshots pre-existing user processes before dispatch,
+attributes new commands by exact Codex session markers and observed descendants,
+checks PID birth identity and pins Linux pidfds before interrupting the exact turn.
+It then terminates only those pinned processes and verifies no attributed command
+remains. It does not issue a second unscoped interrupt. Existing unrelated or
+pre-existing processes are excluded; unresolved cleanup blocks completion.
+
+A fresh 60-second probe in the same session was terminated about five seconds
+after it began. Six subsequent checks confirmed it absent (the observation record
+including those checks spans about eight seconds). The attempt remained interrupted.
+User feedback then completed as attempt 6 and was independently accepted by Claude.
+The official Codex VS Code window was closed and reopened during that running
+feedback turn; it showed ongoing work without another dispatch.
+
+A later Desktop window rebuild disconnected the gateway. Reopening the exact
+thread exposed a pinned-client defect: complete-history hydration requested
+`thread/items/list`, which its backend reported unsupported. The corrected reader
+accepts only that specific failure as a reason to request fresh snapshots from the
+same authenticated original owner. It preserves their incomplete-history metadata.
+The native TUI reconnect displayed the actual final delivery, and exact-turn
+monitoring recovered the same completed attempt without resubmission. Its title
+marks `[recent history only]`; older pagination reports unavailable. Incomplete
+individual turn contents and other owner/protocol errors still fail closed.
+This is a limit on older history, not evidence of complete history restoration.
+
+## Installation and remaining scope
+
+The standard-library installer preflights both personal Skill destinations,
+refuses unmanaged or edited files, preserves executable modes and rolls back
+partial activation. Copies include the Skill, scripts and references; they do not
+copy accounts, native app bundles, task state or acceptance from another machine.
+Old `codex-worker` remains available. See [installation](installation.md).
+
+Only the observed Linux integration may use a receipt bound to this computer,
+current package and client versions. The read-only doctor validates its integrity;
+it does not infer success from offline tests. `release_ready` remains false because
+Windows/macOS adapters and actual native acceptance are outstanding. Starting
+from arbitrary native composers and automatic first-time onboarding are also not
+implemented. No GitHub repository was created.
+
+The final run passed **292 tests** in 23.614 seconds, including the optional native
+renderer against fixtures. Skill validation and `git diff --check` also passed.
+Reproduce with:
 
 ```sh
 CLAUDEX_TEST_NATIVE_TUI=/opt/codex-desktop/resources/codex \
   python3 -B -m unittest discover -s tests
 ```
 
-Without that explicit environment variable, the native-binary fixture test is
-skipped. Skill validation and `git diff --check` also passed.
+The suite's native renderer test uses offline protocol fixtures and makes no model
+calls. Separate live observations above establish the workflow behavior. Source,
+Skill validation and `git diff --check` are checked before installation. Private
+transcripts, screenshots and local receipts are excluded from Git.
 
-New checks cover the Desktop core, loader, source subprocess and prepared ASAR;
-the isolated VS Code history/reconnect patches; and local-runtime versus release
-evidence. No complete native acceptance receipt was created.
+After validation, test owners and follower windows exited normally and the
+original `/usr/lib/claude-desktop/claude-desktop` home UI was observed again.
+Claude settings matched their recorded hash. Native client use added one
+`service_tier = "default"` line to Codex's configuration; removing only that line
+restored the exact recorded full-file hash. The setup instructions now isolate
+the TUI viewer's preference directory. No other configuration bytes were restored
+or overwritten. Unrelated VS Code work remained open.

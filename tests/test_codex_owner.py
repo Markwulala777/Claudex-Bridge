@@ -508,6 +508,33 @@ class CodexOwnerTests(unittest.TestCase):
             self.desktop.state = self.state(self.turn(status="failed"))
             self.assertEqual(adapter.observe(self.CLIENT)["state"], "unknown")
 
+    def test_terminal_with_live_attributed_command_stays_unresolved_until_it_exits(self):
+        with self.adapter() as adapter:
+            self.submit(adapter)
+            self.append(self.completion())
+            self.desktop.state = self.state(self.turn(status="completed"))
+            with mock.patch.object(owner.codex_processes, "candidates", return_value=[{"pid": 123}]):
+                result = adapter.observe(self.CLIENT)
+            self.assertEqual(result["state"], "unknown")
+            self.assertIn("processes remain", result["error"])
+            self.assertFalse((self.directory / "codex-terminal.json").exists())
+            with mock.patch.object(owner.codex_processes, "candidates", return_value=[]):
+                self.assertEqual(adapter.observe(self.CLIENT)["state"], "terminal")
+
+    def test_turn_change_during_process_pinning_neither_interrupts_nor_signals(self):
+        with self.adapter() as adapter:
+            self.submit(adapter)
+            pin = mock.MagicMock()
+            def enter():
+                self.desktop.state = self.state(self.turn(status="interrupted"), self.turn("new", "new-message"))
+                return pin
+            pin.__enter__.side_effect = enter
+            with mock.patch.object(owner.codex_processes, "PinnedProcesses", return_value=pin):
+                with self.assertRaisesRegex(owner.OwnerError, "changed before"):
+                    adapter.interrupt(self.CLIENT, self.TURN)
+            pin.terminate.assert_not_called()
+            self.assertEqual(self.desktop.interrupts, [])
+
 
 if __name__ == "__main__":
     unittest.main()

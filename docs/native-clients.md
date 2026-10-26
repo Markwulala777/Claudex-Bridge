@@ -1,7 +1,8 @@
 # Native-client findings
 
-Evidence collected on Linux, 2026-10-25. Installation observations below are
-separate from the [actual native validation](native-validation.md). Private
+Historical investigation collected on Linux, 2026-10-25, with subsequent component
+notes. Statements below about pending success/workflows describe that earlier
+stage. Current results and remaining limits are in [actual native validation](native-validation.md). Private
 interfaces may change; versions alone are not acceptance.
 
 | Component | Observed installed version |

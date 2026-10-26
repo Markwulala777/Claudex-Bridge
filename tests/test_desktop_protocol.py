@@ -103,6 +103,39 @@ class DesktopProtocolTests(OfflineTest):
         self.assertEqual(self.desktop.receive(1), expected)
         self.assertEqual(self.desktop.buffer, bytearray())
 
+    def test_known_pagination_failure_uses_fresh_owner_snapshot_only_when_opted_in(self):
+        error = bridge.BridgeError("thread-follower-load-complete-history: thread/items/list is not supported yet")
+        with mock.patch.object(self.desktop, "request", side_effect=error):
+            with self.assertRaises(bridge.BridgeError):
+                self.desktop.snapshot()
+            self.desktop.allow_recent_history = True
+            self.desktop.state = {"id": THREAD, "stale": True}
+            message = self.snapshot_message()
+            message["params"]["change"]["conversationState"]["turnsPagination"] = {"hasLoadedOldest": False}
+            self.peer.sendall(frame(self.snapshot_message(sourceClientId="other-owner")) + frame(message))
+            state = self.desktop.snapshot()
+        self.assertNotIn("stale", state)
+        self.assertFalse(state["turnsPagination"]["hasLoadedOldest"])
+        self.assertEqual(self.desktop.snapshot_generation, 1)
+        self.assertTrue(self.desktop.recent_history_only)
+        self.assertEqual(self.read_sent_request()["method"], "thread-stream-following-changed")
+        # An unchanged revision is allowed only after a new authentic snapshot.
+        self.peer.sendall(frame(message))
+        self.assertEqual(self.desktop.snapshot(), state)
+        self.assertEqual(self.desktop.snapshot_generation, 2)
+
+    def test_recent_history_fallback_does_not_swallow_other_errors_or_return_stale_state(self):
+        self.desktop.allow_recent_history = True
+        for error in ["no-client-found", "wrong protocol", "timed out"]:
+            with mock.patch.object(self.desktop, "request", side_effect=bridge.BridgeError(error)):
+                with self.assertRaisesRegex(bridge.BridgeError, error):
+                    self.desktop.snapshot()
+        self.desktop.recent_history_only = True
+        self.desktop.state = {"id": THREAD}
+        with mock.patch.object(self.desktop, "receive", return_value=None):
+            with self.assertRaisesRegex(bridge.BridgeError, "No fresh"):
+                self.desktop.snapshot()
+
     def test_coalesced_frames_are_delivered_separately_and_in_order(self):
         first = {"type": "notice", "sequence": 1}
         second = {"type": "notice", "sequence": 2}

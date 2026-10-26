@@ -28,6 +28,7 @@ from pathlib import Path
 import stat
 import uuid
 
+import codex_processes
 from desktop_bridge import BridgeError, Desktop, turns, validate_rollout, verify_installation
 
 
@@ -191,6 +192,9 @@ class CodexOwner:
         desktop = Desktop(self._log)
         try:
             self._desktop = desktop.__enter__()
+            # Exact-turn matching below remains mandatory when the native client
+            # exposes only recent history. An absent old turn stays unknown.
+            self._desktop.allow_recent_history = True
             self._check_snapshot(self._desktop.attach(self.session_id))
         except BaseException:
             with contextlib.suppress(Exception):
@@ -255,7 +259,8 @@ class CodexOwner:
                   "submission_state": "unknown", "dispatch_offset": None}
         if prompt is not None:
             record.update(prompt_sha256=_sha(prompt.encode("utf-8")),
-                          dispatch_offset=self._source["size"])
+                          dispatch_offset=self._source["size"],
+                          process_baseline=codex_processes.baseline())
         # Never overwrite a reservation written by a competing/stale controller.
         _write(self._state_path, record, exclusive=True)
         self._record = record
@@ -464,9 +469,20 @@ class CodexOwner:
                                                   "cancelled", "canceled"}):
                     return self._unknown("Exact rollout completion has no successful, complete result")
                 result["result"] = text
+            if self._record.get("process_baseline") is not None:
+                remaining = codex_processes.candidates(self.session_id, self._record["process_baseline"])
+                if remaining:
+                    return self._unknown("Native turn ended but attributed command processes remain active")
+            if (self._record.get("interrupt_requested") and
+                    self._record.get("command_cleanup", {}).get("complete") is not True):
+                if self._record.get("process_baseline") is None:
+                    return self._unknown("Native turn ended but its command cleanup is unconfirmed")
+                self._record["command_cleanup"] = {"complete": True, "remaining": [],
+                                                   "basis": "observed_no_remaining_attributed_processes"}
+                self._save()
             result.update(state="terminal", terminal_status=status, evidence=self._evidence(turn, completion))
             return result
-        except (BridgeError, OSError, ValueError, KeyError, TypeError) as exc:
+        except (BridgeError, codex_processes.ProcessError, OSError, ValueError, KeyError, TypeError) as exc:
             return self._unknown(exc)
 
     def interrupt(self, client_message_id, execution_id):
@@ -480,8 +496,22 @@ class CodexOwner:
             raise OwnerError("Interrupt was already requested; observe without repeating it")
         # The retained protocol's expectedTurnId additionally checks server-side
         # that a newly started native turn cannot be interrupted by this request.
-        self._record["interrupt_requested"] = True
-        self._save()
-        reply = self._desktop.interrupt(execution_id)
+        targets = codex_processes.candidates(self.session_id, self._record.get("process_baseline"))
+        with codex_processes.PinnedProcesses(targets) as commands:
+            # Recheck the actual turn after enumerating processes, before either
+            # execution-control action. Never send an unscoped cleanup interrupt.
+            current = self.observe(client_message_id, execution_id)
+            if current["state"] not in ("running", "waiting"):
+                raise OwnerError("Original turn changed before interruption")
+            self._record.update(interrupt_requested=True,
+                                command_cleanup={"complete": False, "targets": targets})
+            self._save()
+            try:
+                reply = self._desktop.interrupt(execution_id)
+            finally:
+                self._record["command_cleanup"] = commands.terminate()
+                remaining = codex_processes.candidates(self.session_id, self._record["process_baseline"])
+                self._record["command_cleanup"].update(complete=not remaining, remaining=remaining)
+                self._save()
         return {"execution_id": execution_id, "id_kind": "turn", "interrupt_requested": True,
-                "reply": reply}
+                "reply": reply, "command_cleanup": self._record["command_cleanup"]}

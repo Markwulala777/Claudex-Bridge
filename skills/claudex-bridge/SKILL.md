@@ -1,11 +1,13 @@
 ---
 name: claudex-bridge
-description: 准备 Claude 与 Codex 的双向派工、验收和返工，检查本机原生客户端兼容性。用户说“让 Claude/Codex 干活”“用 claudex-bridge”时使用。当前开发版须先检查兼容性，不具备完整原生三端同步时说明阻塞。
+description: Claude 与 Codex 双向派工、验收和同会话返工。用户说“让 Claude/Codex 干活”“用 claudex-bridge”时使用。先核验本机兼容性与验收记录；支持已验证的 Linux 原生终端、桌面和官方 VS Code 同步查看。
 ---
 
 # Claudex Bridge
 
-本 Skill 处于开发阶段。双向派工、验收和返工状态机已实现，成功的原生三端闭环仍未验收。
+限定版本的 Linux 双向闭环已实测通过，Windows/macOS 尚未实现并验收。
+当前执行入口是 Codex Desktop 与 Claude 原生 TUI；其他原生窗口同步只读查看，
+需求输入、权限确认在执行入口完成。安装 Skill 不会自动创建会话或接入全部窗口。
 不要因为文件存在、
 CLI 已登录、共享历史可读或旧执行器能运行，就宣布完整桥接可用。
 
@@ -36,8 +38,9 @@ python3 <skill-directory>/scripts/bridge.py doctor --json
 - Claude 子代理默认关闭，以节省额度；用户明确调整时按其选择执行。
 - 子代理不得反向唤起另一端或递归调用桥。执行方及其子代理不得批准自己的交付。
 
-## 完整桥接通过验收后的工作约束
+## 接入与执行
 
+首次接入或恢复窗口先读 [native-setup.md](references/native-setup.md)。
 命令、状态与证据格式见 [workflow.md](references/workflow.md)。只有本机完整验收
 通过后才能执行 `task-dispatch`；该命令本身也检查门槛。`task-watch` 只恢复原轮次，
 不发送新任务。不要直接调用内部 Python API 绕过未通过的原生接入条件。

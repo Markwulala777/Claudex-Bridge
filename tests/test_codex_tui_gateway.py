@@ -103,6 +103,28 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(self.source.reads, reads)
         self.assertIsNotNone(rpc.subscription)
 
+    def test_recent_native_history_is_labeled_and_never_claims_end_of_older_history(self):
+        self.source.state["turns"] = [turn("real recent result", "completed")]
+        self.source.state["turnsPagination"] = {"hasLoadedOldest": False}
+        rpc = self.rpc()
+        self.assertIn("[recent history only]", rpc.mirror.thread["name"])
+        page = rpc.dispatch("thread/turns/list", {"threadId": THREAD})
+        self.assertEqual(page["data"][0]["items"][-1]["text"], "real recent result")
+        self.assertEqual(page["nextCursor"], "unavailable-older-history")
+        for params in [{"cursor": page["nextCursor"]}, {"sortDirection": "asc"}]:
+            with self.assertRaisesRegex(gateway.ProtocolError, "cannot load older history"):
+                rpc.dispatch("thread/turns/list", {"threadId": THREAD, **params})
+        self.source.state["turns"][-1]["items"][-1]["text"] += " updated"
+        rpc.mirror.refresh()
+        self.assertTrue(rpc.mirror.thread["turns"][-1]["items"][-1]["text"].endswith(" updated"))
+
+    def test_incomplete_native_items_are_not_labeled_full(self):
+        current = turn("truncated")
+        current["itemsPagination"] = {"hasLoadedOldest": False}
+        self.source.state["turns"] = [current]
+        with self.assertRaisesRegex(gateway.ProtocolError, "incomplete turn items"):
+            gateway.Mirror(self.source)
+
     def test_mutations_different_threads_and_resume_overrides_are_rejected(self):
         rpc = self.rpc()
         for method in ("turn/start", "turn/steer", "turn/interrupt", "thread/start", "thread/delete",

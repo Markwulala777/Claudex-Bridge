@@ -3,7 +3,7 @@
 ## Contract
 
 The accepted product contract and implementation gates are in
-`docs/implementation.md`. The current evidence is in `docs/native-clients.md`.
+`docs/implementation.md`. The current evidence is in `docs/native-validation.md`.
 Do not describe a planned capability as implemented or a static observation as
 an end-to-end test. Do not publish this repository until the release gate passes.
 
@@ -31,9 +31,23 @@ They are not the finished bidirectional, three-surface runner. Keep the installe
 `workflow.py`, `task_state.py`, `git_evidence.py` and the native owner adapters
 provide the new Linux development workflow. Normal CLI dispatch remains
 acceptance-gated. Command/evidence semantics are maintained in
-`skills/claudex-bridge/references/workflow.md`. Claude Desktop history and one live
-provider-failure path were observed on 2026-10-26; successful native loops still
-await Claude account authorization and the remaining native scenarios.
+`skills/claudex-bridge/references/workflow.md`. On 2026-10-26 one Claude TUI owner
+implemented, revised and continued feedback with real initiating-agent review;
+Desktop and official VS Code displayed its live tools/results and reconnected.
+The full persisted Linux workflow subsequently passed in both directions,
+including rejection, revision, initiating-agent review, feedback and reconnection.
+Other OSes and creation/onboarding from arbitrary native composers remain outside
+that verified scope. Installer copies require the locally bound acceptance receipt.
+Claude owners must launch with `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`: without
+it, native turn abort moves running shell commands to the background. Dispatch
+checks the owner's environment; do not remove this requirement based on an idle
+registry value. The native foreground cancellation regression stopped the command
+and its child process, with all three surfaces retaining the interrupted result.
+
+Codex exact-turn native interruption alone leaves some commands alive. Keep the
+Linux process-attribution baseline and pidfd cleanup in `codex_processes.py`:
+preserve pre-existing/other-session processes, verify PID birth before pinning,
+and keep unconfirmed cleanup unresolved. Never use a second unscoped interrupt.
 
 ## Validation
 

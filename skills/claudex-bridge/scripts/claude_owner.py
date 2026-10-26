@@ -22,6 +22,7 @@ import time
 import uuid
 
 VERSION = "2.1.295"
+OWNER_ENV = {"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"}
 MAX_JSON = 4 * 1024 * 1024
 MAX_MESSAGE = 900000
 MAX_RECEIPT = 1024 * 1024
@@ -110,7 +111,7 @@ def prepare_plugin(private_dir, session_id):
     target.write_text(module, encoding="utf-8")
     target.chmod(0o600)
     return {**binding, "plugin_dir": str(plugin), "ready_file": str(root / "ready.json"),
-            "launch_args": ["--plugin-dir", str(plugin)]}
+            "launch_args": ["--plugin-dir", str(plugin)], "launch_env": dict(OWNER_ENV)}
 
 
 def _binding(private_dir):
@@ -225,6 +226,41 @@ def _check_project(owner, expected_project, proc_root="/proc"):
     _revalidate(owner, proc_root)
     if actual != expected.resolve():
         raise OwnerError("Native owner working directory does not match the task project")
+
+
+def _check_execution_policy(owner, proc_root="/proc"):
+    """Require native foreground cancellation, without changing configuration.
+
+    In 2.1.295 turn.abort otherwise backgrounds Bash instead of stopping it.
+    Read only the required flag from the *owner's* launch environment; never
+    expose environment contents or infer it from the controller's environment.
+    """
+    try:
+        with (Path(proc_root) / str(owner.pid) / "environ").open("rb") as stream:
+            raw = stream.read(1024 * 1024 + 1)
+    except OSError as exc:
+        raise OwnerError("Cannot verify the native owner's execution policy") from exc
+    name = b"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS="
+    values = [part[len(name):] for part in raw.split(b"\0") if part.startswith(name)]
+    if len(raw) > 1024 * 1024 or values != [b"1"]:
+        raise OwnerError("Resume the idle native owner with CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1; "
+                         "otherwise turn cancellation can leave commands running")
+    _revalidate(owner, proc_root)
+
+
+def _permission_update(pending, event):
+    """Each native dialog invocation resolves independently, including batches."""
+    key = event.get("permission_id")
+    if event["kind"] == "permission_request":
+        # Old logs remain readable; they did not record resolution events.
+        key = key or "legacy-" + str(event["sequence"])
+        if not isinstance(key, str) or key in pending:
+            raise OwnerError("Duplicate or invalid native permission request")
+        pending.add(key)
+    else:
+        if not isinstance(key, str) or key not in pending:
+            raise OwnerError("Native permission resolution has no matching request")
+        pending.remove(key)
 
 
 def _peer(connection, owner):
@@ -355,7 +391,13 @@ def observe(private_dir, request_id=None):
         status = receipts[-1]["frame"]["status"]
     if any(e.get("kind") in ("protocol_error", "session_end") for e in events):
         status = "unavailable"
-    if events and events[-1].get("kind") == "permission_request":
+    pending_permissions = set()
+    for event in events:
+        if event.get("kind") in ("permission_request", "permission_resolved"):
+            if event.get("turn_id") != turn_id:
+                raise OwnerError("Permission event does not match the claimed turn")
+            _permission_update(pending_permissions, event)
+    if pending_permissions:
         status = "permission_wait"
     result = {"session_id": binding["session_id"], "request_id": request_id,
               "turn_id": turn_id, "status": status, "events": events, "receipts": receipts}
@@ -393,6 +435,7 @@ def view_state(private_dir, session_id):
         result.update(instance_id=ready[0]["instance_id"], reason="ready_without_turn_evidence")
         active = None
         claimed_owner = None
+        pending_permissions = set()
 
         def unknown(event, reason):
             return {"state": "unknown", "session_id": session_id,
@@ -416,6 +459,7 @@ def view_state(private_dir, session_id):
                 if claimed_owner.session_id != session_id or claimed_owner.version != VERSION:
                     raise OwnerError("Claimed native owner identity/version mismatch")
                 active = (request_id, turn_id)
+                pending_permissions.clear()
                 result = {"state": "running", "session_id": session_id,
                           "instance_id": ready[0]["instance_id"], "request_id": request_id,
                           "turn_id": turn_id, "evidence": event["evidence"]}
@@ -433,12 +477,17 @@ def view_state(private_dir, session_id):
                                   is_aborted=event["isAborted"], evidence=event["evidence"])
                     result.pop("waiting_for", None)
                 active = None
-            elif kind == "permission_request":
+            elif kind in ("permission_request", "permission_resolved"):
                 if active != (event.get("request_id"), event.get("turn_id")):
-                    result = unknown(event, "unmatched_native_permission_request")
+                    result = unknown(event, "unmatched_native_permission_event")
                     active = None
                 else:
-                    result.update(waiting_for="permission", evidence=event["evidence"])
+                    _permission_update(pending_permissions, event)
+                    result.update(evidence=event["evidence"])
+                    if pending_permissions:
+                        result["waiting_for"] = "permission"
+                    else:
+                        result.pop("waiting_for", None)
             elif kind == "session_end":
                 result = {"state": "stopped", "session_id": session_id,
                           "instance_id": ready[0]["instance_id"], "turn_id": event.get("turn_id"),
@@ -502,6 +551,7 @@ def submit(private_dir, text, *, owner=None, request_id=None, timeout=30.0,
         if owner.session_id != binding["session_id"] or owner.status != "idle":
             raise OwnerError("Exact native owner must be idle before dispatch")
         _check_project(owner, expected_project, proc_root)
+        _check_execution_policy(owner, proc_root)
         marker = "[claudex-request:" + request_id + "]"
         request = {"schema": 1, "session_id": binding["session_id"], "launch_id": binding["launch_id"],
                    "instance_id": ready["instance_id"], "request_id": request_id,
@@ -530,6 +580,7 @@ def submit(private_dir, text, *, owner=None, request_id=None, timeout=30.0,
                 _peer(connection, owner)
                 _revalidate(owner, proc_root)
                 _check_project(owner, expected_project, proc_root)
+                _check_execution_policy(owner, proc_root)
                 # Persist ambiguity before sendall: any failure may be partial delivery.
                 request["dispatch_status"] = "sending_unknown"
                 _write(path, request)
@@ -596,6 +647,7 @@ class OwnerController:
         if owner.status != "idle":
             raise OwnerError("Exact owner is not idle: " + owner.status)
         _check_project(owner, self.expected_project, self.proc_root)
+        _check_execution_policy(owner, self.proc_root)
         self.owner = owner
         return asdict(owner)
 

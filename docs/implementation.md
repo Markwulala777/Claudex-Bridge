@@ -18,23 +18,19 @@ No recursive bridge calls, role swapping, or executor self-approval.
   bootstrap's `--disable multi_agent` / `--disable multi_agent_v2` arguments.
 - [x] Keep existing provider configuration, state directory, task IDs and locks.
 - [x] Add bilingual documentation, MIT license, and a read-only doctor.
-- [ ] Install the new entrypoint only after its complete behavior can be supported.
+- [x] Provide a gated, self-contained Linux Skill installer; preserve the old entrypoint.
 
 The old runner's state directory deliberately remains
 `$XDG_STATE_HOME/claude-codex-worker` (default `~/.local/state/claude-codex-worker`),
 overridable by the existing `CODEX_WORKER_STATE_DIR`. No task-state migration is
 performed. New state roots must not bypass its one-main-worker lock.
 
-Current verification (Linux, 2026-10-25): the suite now includes the native
-view adapters, profile isolation, faithful failure rendering, metadata probes,
-history boundaries, and rejection of duplicate execution. Real Codex Desktop
-history and live progress were rendered by the native TUI. A real Claude request
-was rejected by the existing provider for insufficient quota; its unchanged
-temporary project and failure message were checked, and the official VS Code
-panel displayed that same session through the follower. See the precise
-[validation record](native-validation.md). These checks do not complete the bridge.
+Current verification (Linux, 2026-10-26): both initiating agents completed actual
+persisted dispatch, rejection, same-session revision, independent review and
+feedback. Native views, reconnect and foreground stop were observed. The exact
+scope and known native history limitation are in the [validation record](native-validation.md).
 
-## 2. Native attachment gate — currently blocked
+## 2. Native attachment gate — Linux component checks passed
 
 - [x] Inspect the locally installed clients and protocol versions without model calls.
 - [x] Identify exact missing attachment paths and distinguish them from history import.
@@ -47,30 +43,32 @@ panel displayed that same session through the follower. See the precise
 - [x] Prepare a removable, version-pinned Linux Claude Desktop copy with a read-only
   LocalSessions API, explicit listener acknowledgments and source-failure handling.
 - [x] Observe that Desktop copy rendering the bound conversation in its actual UI.
-- [ ] Claude: one executing session simultaneously visible in native TUI,
-  native Desktop, and official VS Code panel, with the existing provider retained.
+- [x] Claude on Linux: one executing session simultaneously visible in native TUI,
+  native Desktop, and official VS Code panel. Existing settings remained unchanged;
+  the user authorized the official account route for successful live validation.
 - [x] Codex on Linux: one existing executing session simultaneously observed in
   native TUI, native Desktop, and official VS Code panel, using existing login.
-  Full dispatch/revision acceptance below remains separate.
-- [ ] Opening or reconnecting another native view never starts a second inference.
-- [ ] Native views update tool activity and results automatically without user refresh.
+  Full dispatch/revision acceptance below subsequently passed.
+- [x] Opening or reconnecting another native view did not start a second inference
+  in the observed Linux runs; version-pinned followers cannot dispatch execution.
+- [x] Native views updated tool activity and results automatically without user refresh.
 - [x] Save actual client versions and integration evidence for each working adapter.
 
-See [native-client findings](native-clients.md). The full bridge must not dispatch
-until this gate passes. The old desktop leg is retained as implementation input,
-not relabeled as a complete bridge. Current blockers cannot be solved just by
-changing Skill wording.
+See [native-client findings](native-clients.md) and the newer
+[live validation record](native-validation.md). Linux development may now exercise
+the full persisted workflow. Normal CLI dispatch requires a receipt for this computer, implementation and
+client versions. Other platforms remain unverified.
 
 ## 3. Bidirectional executor and acceptance loop
 
 - [x] Specify shared role and subagent policy in the new skill.
 - [x] Implement both native owner adapters and the shared workflow, with offline integration tests.
-- [ ] Validate successful execution in both directions through all native attachments.
+- [x] Validate successful execution in both directions through all native attachments.
 - [x] Save both main session IDs, project, requirement versions and review evidence.
 - [x] Rework and feedback target the original executor session; independent tasks use new sessions.
 - [x] Bind review to complete actual diffs, unchanged snapshots and actual test evidence.
-- [ ] Run the complete successful native acceptance cycle in both directions.
-- [ ] Show final completion, acceptance, tests and real remaining issues to the user.
+- [x] Run the persisted native acceptance cycle in both directions on Linux.
+- [x] Each initiating agent reported completion, actual acceptance and test results.
 
 Default revisions continue until acceptance or a concrete blocker. The user may
 change the limit or stop. After two attempts on the same issue without new evidence,
@@ -85,25 +83,35 @@ original-turn cancellation, and baseline capture. Offline regression tests exerc
 these paths; they are not evidence of live GUI integration.
 
 - [x] Implement those invariants for both native owners and validate with offline regressions.
-- [ ] Recover a disconnected view without duplicate task submission.
-- [ ] Confirm actual terminal/GUI stopping behavior on the original execution.
-- [ ] Verify quota, permission and command failures never become accepted results.
+- [x] Recover disconnected native views without duplicate task submission.
+- [x] Confirm exact-turn foreground cancellation and command termination for both owners.
+- [x] Observe quota failure, permission waits and failing acceptance commands; no false acceptance.
 
-On 2026-10-26 the actual Claude TUI received a new peer task through its native
-socket. The provider again returned HTTP 403 for insufficient quota. The native
-hook matched the request marker to its real turn ID and recorded `reason:error`;
-the workflow adapter classified it as failed. Desktop displayed the appended task
-and error automatically, and a reopened Desktop view used the hook state to stop
-the busy indicator. This verifies that failure path, not the remaining success,
-permission and stop scenarios. See [workflow commands](../skills/claudex-bridge/references/workflow.md).
+Native checks observed Claude quota failure, one-time permission resolution,
+failed independent tests, detached monitoring and duplicate dispatch rejection.
+Both owners' first stop probes exposed background-command behavior; those failures
+remain recorded. Claude now requires foreground-only native tasks; Codex pins
+attributed new command PIDs before exact-turn interrupt and verifies cleanup.
+Successful corrected probes and same-session continuation were then observed.
+
+A later Codex Desktop window rebuild exposed unsupported native item pagination.
+The gateway and exact-turn monitor can use fresh authenticated owner snapshots;
+the TUI labels incomplete old history and rejects unavailable older pagination.
+No rollout history is imported, and an unobservable turn remains unknown.
+See [workflow commands](../skills/claudex-bridge/references/workflow.md).
 
 ## 5. Platform integration and installation
 
-- [ ] Discover supported native installs and select version-specific adapters.
+Verified execution owners are Codex Desktop and Claude native TUI; other views
+are read-only. Opening/creating owners, native trust and first attachment remain
+explicit setup steps. Arbitrary input ownership across all native composers and
+one-command native onboarding are not implemented.
+
+- [x] Discover supported Linux installs and select version-specific adapters.
 - [ ] Implement Windows transports and locks and macOS native attachment.
-- [ ] Install/uninstall portable self-contained skills without editing provider settings,
+- [x] Provide gated install/uninstall of self-contained skills without editing provider settings,
   CC Switch, authentication or unrelated rules.
-- [ ] Keep each computer's independent local state and existing sessions.
+- [x] Keep local state and existing sessions; reject receipts from another computer.
 
 Doctor can run without importing the Linux executor. Its portable Python execution
 does not imply cross-platform execution support. The old executor's Unix sockets,
@@ -125,10 +133,10 @@ file. For both initiating agents, record evidence that:
    final acceptance.
 7. No endpoint, login, CC Switch or unrelated configuration changes are needed.
 
-- [ ] Linux actual native end-to-end run.
+- [x] Linux actual native end-to-end run within the recorded owner/view scope.
 - [x] Separate local runtime readiness from the three-platform publication gate.
 - [ ] Windows actual native end-to-end run.
 - [ ] macOS actual native end-to-end run.
-- [ ] Full bilingual installation and troubleshooting instructions reflect the results.
+- [x] Bilingual installation and troubleshooting instructions reflect actual Linux results.
 - [ ] Only after every gate passes, create the public `Markwulala777/claudex-bridge`
   repository and publish. No GitHub repository has been created for this work.

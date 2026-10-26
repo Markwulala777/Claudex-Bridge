@@ -12,8 +12,11 @@ run models, create receipts, or change providers and authentication.
 - `runtime_blockers` and `platform_blockers` describe the separate scopes. The
   combined `blockers` field remains for existing report consumers.
 
-Both gates are currently false. The capability flags describe implemented code;
-they are not configurable overrides. A receipt cannot enable a missing executor.
+Linux native acceptance passed on the development computer on 2026-10-26. Its
+local receipt can enable `runtime_ready`; another computer remains blocked until
+its own acceptance. `release_ready` remains false. The capability flags describe
+implemented code; they are not configurable overrides. A receipt cannot enable
+a missing executor.
 
 ## Receipt binding
 
@@ -24,8 +27,10 @@ that directory or migrates old task state. See `inspect_acceptance()` in
 the expected current values.
 
 Evidence is bound to the OS, hashed local host/user/home identity, current Skill
-and executable Python/JavaScript/JSON files, all four client versions and Codex
-IPC versions. Changing code, the Skill, host or client versions invalidates it.
+and packaged Python/JavaScript/JSON/Markdown/YAML files (including references and
+executable bits), all four client versions and Codex IPC versions. Changing code,
+instructions, host or client versions invalidates it. Installation location,
+bytecode caches and the installer's manifest do not affect the fingerprint.
 Both initiating directions need exact Claude/Codex session UUIDs and all seven
 workflow scenarios listed in `required_scenarios`. Every passed scenario needs a
 relative artifact path and matching SHA-256, plus a run UUID and timestamp.

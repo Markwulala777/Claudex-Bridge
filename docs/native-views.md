@@ -84,7 +84,7 @@ for its same session; it cannot silently switch its binding or client version.
 Close only test windows and processes you created. Remove their private profile
 directories when no longer needed; keep the original owner transcript intact.
 
-## Claude Desktop copy — history and real failure observed
+## Claude Desktop copy — live tasks, tools and results observed
 
 Use a `history: "replay"`, `source_format: "transcript"` binding for producer
 2.1.295. The currently supported Desktop build is 3.6556.1 on Linux. The output

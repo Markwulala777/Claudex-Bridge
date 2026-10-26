@@ -18,6 +18,7 @@ spec = importlib.util.spec_from_file_location("claude_owner_fixture", SCRIPT)
 owner = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = owner
 spec.loader.exec_module(owner)
+check_execution_policy = owner._check_execution_policy
 SESSION = "11111111-1111-4111-8111-111111111111"
 OTHER = "22222222-2222-4222-8222-222222222222"
 
@@ -48,6 +49,19 @@ class OwnerTests(unittest.TestCase):
                        "procStart": owner._start(os.getpid()), "status": "idle",
                        "messagingSocketPath": str(self.native_path)}
         owner._write(self.record_path, self.record)
+        # Exercise the real launch-policy validator against a private /proc
+        # fixture, retaining the actual PID/start/socket credential checks.
+        self.policy_proc = self.root / "policy-proc"
+        policy_pid = self.policy_proc / str(os.getpid())
+        policy_pid.mkdir(parents=True)
+        (policy_pid / "stat").symlink_to(Path("/proc") / str(os.getpid()) / "stat")
+        self.environment = policy_pid / "environ"
+        self.environment.write_bytes(b"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1\0")
+        patcher = mock.patch.object(owner, "_check_execution_policy",
+                                    side_effect=lambda current, proc_root="/proc":
+                                    check_execution_policy(current, self.policy_proc))
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def event(self, kind, **extra):
         self.sequence += 1
@@ -88,6 +102,7 @@ class OwnerTests(unittest.TestCase):
         plugin = Path(self.prepared["plugin_dir"])
         self.assertEqual(json.loads((plugin / "hooks/hooks.json").read_text()), {"modules": ["./bridge.js"]})
         self.assertNotIn("__CLAUDEX_OWNER_BINDING__", (plugin / "hooks/bridge.js").read_text())
+        self.assertEqual(self.prepared["launch_env"], {"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1"})
         with self.assertRaises(owner.OwnerError):
             owner.prepare_plugin(self.state, OTHER)
 
@@ -153,6 +168,30 @@ class OwnerTests(unittest.TestCase):
         request = next((self.state / "requests").glob("*.json"))
         self.assertEqual(owner._json(request)["dispatch_status"], "prepared")
 
+    def test_missing_or_ambiguous_owner_launch_policy_prevents_dispatch(self):
+        for raw in (b"TOKEN=private-fixture-secret\0", b"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=0\0",
+                    b"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1\0CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=0\0"):
+            self.environment.write_bytes(raw)
+            with self.subTest(raw=raw), self.assertRaises(owner.OwnerError) as raised:
+                self.controller().submit("must not send", str(uuid.uuid4()))
+            self.assertNotIn("private-fixture-secret", str(raised.exception))
+        self.environment.unlink()
+        with self.assertRaisesRegex(owner.OwnerError, "Cannot verify"):
+            self.controller().preflight()
+        self.assertEqual(list((self.state / "requests").glob("*.json")), [])
+        with self.assertRaises(socket.timeout):
+            self.native.accept()
+
+    def test_launch_policy_is_rechecked_before_sending_after_preflight(self):
+        controller = self.controller()
+        controller._open()
+        self.environment.write_bytes(b"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=0\0")
+        with self.assertRaisesRegex(owner.OwnerError, "DISABLE_BACKGROUND_TASKS"):
+            controller.submit("must not send", str(uuid.uuid4()))
+        self.assertEqual(list((self.state / "requests").glob("*.json")), [])
+        with self.assertRaises(socket.timeout):
+            self.native.accept()
+
     def test_late_held_receipt_preserved_by_live_controller_and_other_request_ignored(self):
         controller, request_id, _, wire = self.request()
         for orig, status in ((str(uuid.uuid4()), "denied"), (wire["msg_id"], "held")):
@@ -189,6 +228,25 @@ class OwnerTests(unittest.TestCase):
         owner._write(self.state / "events/uncommitted.json", {"kind": "turn_complete"})
         self.assertEqual(controller.observe(request_id)["status"], "sent_unconfirmed")
         self.assertNotIn("completion", controller.observe(request_id))
+
+    def test_parallel_permission_resolution_clears_wait_without_completing_turn(self):
+        controller, request_id, _, _ = self.request()
+        self.event("turn_start", request_id=request_id, turn_id="native-turn")
+        for permission in ("first", "second"):
+            self.event("permission_request", request_id=request_id, turn_id="native-turn",
+                       permission_id=permission, prompt_id="shared-batch-dialog")
+        self.event("permission_resolved", request_id=request_id, turn_id="native-turn", permission_id="first")
+        self.assertEqual(controller.observe(request_id)["status"], "permission_wait")
+        self.assertEqual(owner.view_state(self.state, SESSION)["waiting_for"], "permission")
+        self.event("permission_resolved", request_id=request_id, turn_id="native-turn", permission_id="second")
+        result = controller.observe(request_id)
+        self.assertEqual(result["status"], "running")
+        self.assertNotIn("completion", result)
+        self.assertNotIn("waiting_for", owner.view_state(self.state, SESSION))
+        self.event("permission_resolved", request_id=request_id, turn_id="native-turn", permission_id="unknown")
+        with self.assertRaisesRegex(owner.OwnerError, "no matching request"):
+            controller.observe(request_id)
+        self.assertEqual(owner.view_state(self.state, SESSION)["state"], "unknown")
 
     def test_completion_without_matching_start_is_rejected(self):
         controller, request_id, _, _ = self.request()
@@ -369,7 +427,10 @@ const events=()=>[...files].filter(([p])=>p.endsWith('.commit')).map(([p])=>JSON
  files.set(stateDir+'/interrupt.json',JSON.stringify({...cmd,command_id:'command-2',turn_id:'exact-turn'}));
  await clock(); await clock(); assert.deepEqual(aborts,['exact-turn']);
  await emit('classic.PermissionRequest',{session_id:binding.session_id,tool_name:'Bash'});
- assert.equal(events().at(-1).kind,'permission_request');
+ assert.equal(events().at(-1).kind,'permission_resolved');
+ const permissionEvents=events().filter(e=>e.kind.startsWith('permission_'));
+ assert.equal(permissionEvents.length,2);
+ assert.equal(permissionEvents[0].permission_id,permissionEvents[1].permission_id);
  await emit('turn.complete',{agentId:'child',turnId:'exact-turn',reason:'answer',isAborted:false,answer:'wrong child'});
  await emit('turn.complete',{turnId:'unrelated',reason:'answer',isAborted:false,answer:'wrong turn'});
  assert.equal(events().filter(e=>e.kind==='turn_complete').length,0);

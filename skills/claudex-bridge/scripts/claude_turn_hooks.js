@@ -10,6 +10,7 @@ const BINDING = __CLAUDEX_OWNER_BINDING__;
   let active;
   let polling = false;
   let timer;
+  let permissionSequence = 0;
   const stopSeen = new Set();
 
   function emit($, kind, data) {
@@ -141,10 +142,17 @@ export function register(on) {
     if (event.agent_id !== undefined) return next(event);
     await initialize($);
     await identity($);
-    if (active) await emit($, "permission_request", {
-      ...active, prompt_id: event.prompt_id, tool_name: event.tool_name,
-    });
-    return next(event);
+    const claimed = active;
+    if (!claimed) return next(event);
+    const permission = {
+      ...claimed, permission_id: instance + "-permission-" + (++permissionSequence),
+      prompt_id: event.prompt_id, tool_name: event.tool_name,
+    };
+    await emit($, "permission_request", permission);
+    try { return await next(event); }
+    finally {
+      if (active === claimed) await emit($, "permission_resolved", permission);
+    }
   });
 
   on("session.end", async ($, event, next) => {

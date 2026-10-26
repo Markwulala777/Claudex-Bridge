@@ -1,6 +1,6 @@
 # Codex native TUI through an existing Desktop owner
 
-Status, 2026-10-25: **the native TUI rendered the explicitly authorized, already
+Historical component status, 2026-10-25: **the native TUI rendered the explicitly authorized, already
 running Desktop conversation's history and subsequent real command output through
 this adapter, without an execution mutation or second owner.** Offline fixture
 regressions also pass. This is a Linux development adapter, not a claim that the
@@ -149,12 +149,12 @@ WebSocket extensions are rejected. The listener exits after that client closes
 and removes only its own socket. Remove the empty temporary directory afterwards.
 No new dependency beyond Python's standard library is required.
 
-The command above uses the viewer's existing configuration. Its local service
-tier, when set, must match the original owner. The gateway does not edit local or
-owner settings. `TERM` supplies a supported terminal type for an allocated PTY;
-the TUI still needs an actual terminal. Isolated `CODEX_HOME` is used by automated
-offline tests to keep test history and configuration temporary, not as a required
-production workaround.
+Use an empty private `CODEX_HOME` for the TUI viewer, as in the packaged
+[native setup](../skills/claudex-bridge/references/native-setup.md), to keep its
+native onboarding preferences out of the user's configuration. Do not set this
+for the gateway or workflow, which need the original owner and state. A local
+service tier, when configured, must match the original owner. `TERM` supplies a
+supported terminal type; the TUI still needs an actual terminal.
 
 ## Verification and remaining acceptance
 
@@ -249,3 +249,17 @@ Primary implementation references:
 [native TUI app-server session](https://github.com/openai/codex/blob/main/codex-rs/tui/src/app_server_session.rs).
 The installed binary's generated schema and captured handshake take precedence
 over changes subsequently made to those `main` branch references.
+
+## 2026-10-26 workflow and recovery follow-up
+
+Both native workflow directions subsequently passed the checks recorded in
+[native validation](native-validation.md). A Desktop window rebuild also exposed
+an older-history pagination defect in this pinned client. Only its specific
+`thread/items/list is not supported yet` error enables a fresh same-owner snapshot
+read. The gateway preserves native history boundaries, labels its TUI name
+`[recent history only]`, and returns an unavailable-older-history cursor/error.
+It rejects incomplete individual turns rather than calling their items full.
+Other failures remain closed. This path does not read rollout history, start a
+model or send a turn. The actual TUI reconnected to the accepted workflow's final
+result, including with a private empty viewer home; original config hashes stayed
+unchanged in the latter check.
