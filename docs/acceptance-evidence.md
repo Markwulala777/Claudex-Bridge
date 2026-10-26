@@ -1,4 +1,4 @@
-# Local runtime and publication gates
+# Local runtime and cross-platform release gates
 
 `doctor` is read-only. It does not start clients, connect to conversation sockets,
 run models, create receipts, or change providers and authentication.
@@ -8,7 +8,9 @@ run models, create receipts, or change providers and authentication.
   exits 0 only when this gate passes; otherwise it exits 2.
 - `release_ready` additionally requires native acceptance on Linux, Windows and
   macOS. `doctor --require-release` uses this gate. Windows/macOS remain explicitly
-  unimplemented/unverified, so publication is blocked.
+  unimplemented/unverified, so a supported cross-platform release is blocked.
+  Public Linux development-preview source is separately authorized by the user;
+  publishing source does not bypass either readiness gate.
 - `runtime_blockers` and `platform_blockers` describe the separate scopes. The
   combined `blockers` field remains for existing report consumers.
 

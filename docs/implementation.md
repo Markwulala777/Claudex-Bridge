@@ -10,7 +10,7 @@ may delegate independent work, then integrate and verify it. Claude subagents
 default off. The initiating main agent personally accepts or rejects delivery.
 No recursive bridge calls, role swapping, or executor self-approval.
 
-## 1. Repository and compatibility entrypoint
+## 1. Repository and state compatibility
 
 - [x] Create the local Git repository on the user's Desktop.
 - [x] Reuse the current installed runner, including its model/effort parameters.
@@ -18,7 +18,9 @@ No recursive bridge calls, role swapping, or executor self-approval.
   bootstrap's `--disable multi_agent` / `--disable multi_agent_v2` arguments.
 - [x] Keep existing provider configuration, state directory, task IDs and locks.
 - [x] Add bilingual documentation, MIT license, and a read-only doctor.
-- [x] Provide a gated, self-contained Linux Skill installer; preserve the old entrypoint.
+- [x] Provide a gated, self-contained Linux Skill installer; preserve the separately installed old Skill.
+- [x] Remove the bundled single-direction entrypoint and its dedicated tests; retain
+  the shared native transport and lock-compatibility regression tests.
 
 The old runner's state directory deliberately remains
 `$XDG_STATE_HOME/claude-codex-worker` (default `~/.local/state/claude-codex-worker`),
@@ -77,10 +79,10 @@ Automatic acceptance requires the initiating main-agent conversation to remain a
 
 ## 4. Persistence, cancellation and recovery
 
-The retained desktop runner already contains persistent unresolved-submission
-protection, exact conversation/turn matching, separate execution/review states,
-original-turn cancellation, and baseline capture. Offline regression tests exercise
-these paths; they are not evidence of live GUI integration.
+The shared workflow contains persistent unresolved-submission protection, exact
+conversation/turn matching, separate execution/review states, original-turn
+cancellation, and baseline capture. Offline regression tests exercise these paths;
+they are not evidence of live GUI integration.
 
 - [x] Implement those invariants for both native owners and validate with offline regressions.
 - [x] Recover disconnected native views without duplicate task submission.
@@ -114,7 +116,7 @@ one-command native onboarding are not implemented.
 - [x] Keep local state and existing sessions; reject receipts from another computer.
 
 Doctor can run without importing the Linux executor. Its portable Python execution
-does not imply cross-platform execution support. The old executor's Unix sockets,
+does not imply cross-platform execution support. The native adapters' Unix sockets,
 `/proc`, `fcntl`, and `xdg-open` are explicitly Linux-specific.
 
 ## 6. Release acceptance
@@ -134,9 +136,13 @@ file. For both initiating agents, record evidence that:
 7. No endpoint, login, CC Switch or unrelated configuration changes are needed.
 
 - [x] Linux actual native end-to-end run within the recorded owner/view scope.
-- [x] Separate local runtime readiness from the three-platform publication gate.
+- [x] Separate local runtime readiness from the three-platform release gate.
 - [ ] Windows actual native end-to-end run.
 - [ ] macOS actual native end-to-end run.
 - [x] Bilingual installation and troubleshooting instructions reflect actual Linux results.
-- [ ] Only after every gate passes, create the public `Markwulala777/claudex-bridge`
-  repository and publish. No GitHub repository has been created for this work.
+- [x] The user authorized public Linux development-preview source on 2026-10-26,
+  superseding the earlier requirement to wait for all platforms before publishing source.
+- [ ] Complete Windows/macOS native acceptance before a supported cross-platform release.
+
+Source repository: https://github.com/Markwulala777/Claudex-Bridge. Local installation
+and dispatch still require acceptance bound to the current package and computer.

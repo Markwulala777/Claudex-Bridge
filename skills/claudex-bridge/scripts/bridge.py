@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Claudex Bridge development CLI. Native dispatch remains acceptance-gated."""
+"""Claudex-Bridge development CLI. Native dispatch remains acceptance-gated."""
 import argparse
 import json
 import sys
@@ -66,7 +66,7 @@ def main(argv=None):
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
     else:
-        print("Claudex Bridge: " + ("ready for this computer" if result["runtime_ready"] else "blocked (native integration has not passed)"))
+        print("Claudex-Bridge: " + ("ready for this computer" if result["runtime_ready"] else "blocked (native integration has not passed)"))
         for name, component in result["components"].items():
             print(f"  {name}: {component['version'] or 'not detected'}")
         for blocker in result["blockers"]:

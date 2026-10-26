@@ -426,7 +426,7 @@ class Follower:
             self.replay = []
             result.append({
                 "type": "system", "subtype": "informational", "level": "notice",
-                "content": "Claudex Bridge: read-only follower attached. Send prompts and controls to the executing owner.",
+                "content": "Claudex-Bridge: read-only follower attached. Send prompts and controls to the executing owner.",
                 "session_id": self.binding.session_id, "uuid": str(uuid.uuid4()),
             })
         return result

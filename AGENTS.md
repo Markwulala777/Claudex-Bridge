@@ -1,11 +1,13 @@
-# Claudex Bridge
+# Claudex-Bridge
 
 ## Contract
 
 The accepted product contract and implementation gates are in
 `docs/implementation.md`. The current evidence is in `docs/native-validation.md`.
 Do not describe a planned capability as implemented or a static observation as
-an end-to-end test. Do not publish this repository until the release gate passes.
+an end-to-end test. The user authorized public source publication as a Linux
+development preview on 2026-10-26. A supported cross-platform release still
+requires the full release gate; source publication does not enable runtime use.
 
 There are two main agents with fixed roles per task. The initiating main agent
 owns requirements, final acceptance, and reporting. The other main agent owns
@@ -22,11 +24,11 @@ history sharing, a second inference process, and a separate log viewer do not
 meet that requirement. Internal adapters must check their protocol version and
 fail closed. Reconnect by saved conversation and turn IDs; never use `--last`.
 
-`skills/claudex-bridge/scripts/worker.py` and `desktop_bridge.py` are the retained
-Linux Claude-to-Codex desktop implementation. They intentionally retain the
-old state directory and lock so two names cannot start competing main workers.
-They are not the finished bidirectional, three-surface runner. Keep the installed
-`codex-worker` usable while the new native adapters are blocked.
+`skills/claudex-bridge/scripts/bridge.py` is the supported CLI entrypoint.
+`desktop_bridge.py` remains a shared Codex native transport used by the owner
+and TUI gateway. The retired single-direction entrypoint is no longer bundled.
+Keep the separately installed `codex-worker` usable and retain its state directory
+and `worker.lock`, so old and new installations cannot start competing main workers.
 
 `workflow.py`, `task_state.py`, `git_evidence.py` and the native owner adapters
 provide the new Linux development workflow. Normal CLI dispatch remains
@@ -61,7 +63,7 @@ python3 skills/claudex-bridge/scripts/bridge.py doctor --json
 Doctor is read-only, makes no model calls, and exits 2 while this computer's
 runtime requirements are unmet. `doctor --require-release` additionally requires
 all three platforms. Linux may be enabled after its full acceptance without
-claiming Windows/macOS support or publishing. Offline tests use temporary files
+claiming Windows/macOS support or a cross-platform release. Offline tests use temporary files
 and protocol doubles, never a real model. Live integration is authorized for temporary projects in this development
 task; do not relabel it as verified before observing the actual native surfaces.
 Record evidence separately from expectations. Windows/macOS require real checks

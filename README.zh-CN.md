@@ -1,65 +1,74 @@
-# Claudex Bridge
+<p align="center">
+  <img src="assets/readme/icon.svg" width="96" height="96" alt="Claudex-Bridge：橙色与蓝紫色双 C 相扣，代表 Claude 与 Codex 协作">
+</p>
 
-[English](README.md)
+<h1 align="center">Claudex-Bridge</h1>
 
-让 Claude 和 Codex 互相派工，由发起方阅读实际改动、核验测试、安排原会话返工并汇报。
-同一任务的两个主角色保持固定。
+<p align="center">Claude ↔ Codex · 双向派工，原会话返工，发起方验收。</p>
+<p align="center"><a href="README.md">English</a> · <b>简体中文</b></p>
 
-**Linux 开发集成已于 2026-10-26 完成双向实测验收。** Windows/macOS 尚未实现并验证；
-按既定三平台发布条件，目前没有发布到 GitHub。
+和 Claude 或 Codex 聊清需求，让另一方实现。发起方阅读实际改动、核验测试，
+不通过就交回原会话修改，通过后向你汇报。
 
-## 已验证的流程
+> **Linux 开发预览版。** 双向流程已于 2026-10-26 完成实测验收。
+> 本次整理后的源码须重新进行本机验收，才能安装；Windows 和 macOS 尚待实现与验证。
+> [验证证据与当前范围 →](docs/native-validation.md#source-cleanup-after-acceptance)
 
-聊需求 → 派给一个执行者 → 实现与测试 → 发起方亲自验收 → 不通过则原会话返工，
-直到通过或遇到具体卡点。用户追加反馈继续原任务和两个原会话。自动闭环要求发起方会话持续运行。
+## 一个任务，走完交付闭环
 
-两个方向都在临时 Git 项目中完成了故意拒收、同会话修复、独立验收测试、追加反馈、
-监控中断恢复、重复派工拦截、原生窗口重连和前台命令停止。
-已有文件修改和未跟踪文件均保留；真实 Claude 额度失败没有误报成功。
-参见[验证记录与限制](docs/native-validation.md)。
+**聊需求 → 派工 → 实现与测试 → 验收 → 返工或通过**
 
-| 产品 | 实际执行与输入入口 | 同时查看的原生界面 |
-| --- | --- | --- |
-| Codex | 桌面端 | 桌面端、配套终端 TUI、官方 VS Code 插件 |
-| Claude | 原生终端 TUI 2.1.295 | TUI、可删除的桌面副本、官方 VS Code 插件 |
+完成接入后，在发起方会话中提出任务：
 
-查看窗口的输入框为只读，权限提示在执行入口处理。安装器不会自动创建会话或打开所有窗口。
-Claude 桌面副本独占原配置目录，须先正常退出原客户端。这一版尚不支持在任意前端之间自由切换输入。
-当前 Codex 客户端有历史分页缺陷，重连后的终端可能只能显示桌面已加载的最近轮次；
-实时更新仍可继续，缺失的旧历史会明确标记，不会导入历史来伪装完整。
+> `/claudex-bridge`
+>
+> 让 Codex 实现 CSV 导出。完成后检查实际 diff 和测试结果。
+> 验收不通过时，给出具体修改要求，交回原会话修复。
+> 通过后向我汇报；遇到无法推进的问题，说明卡点。
 
-Codex 执行者可委派独立子任务，并负责整合与验证。Claude 默认不开子代理。
-最终验收由发起方主 Agent 亲自完成，执行者不能自批通过，不递归调用桥或交换主角色。
+也可以由 Codex 发起、交给 Claude 执行。同一任务主角色固定，追加反馈继续原会话。
+自动验收和返工需要发起方会话保持运行。Codex 可委派独立子任务，Claude 默认不开子代理。
 
-## 在完成验收的 Linux 电脑上安装
+## 从 Linux 开始
 
-需要 Python 3.9+、Linux pidfd 支持、Git，以及记录中的原生客户端版本。
+需要 Python 3.9+、Linux pidfd 支持、Git，以及[验证记录中的原生客户端](docs/native-validation.md)。
+在仓库目录检查兼容性，检查过程不调用模型：
 
 ```sh
 python3 -B skills/claudex-bridge/scripts/bridge.py doctor --json
+```
+
+只有 `runtime_ready=true` 时，才为两端安装 Skill：
+
+```sh
 python3 -B install.py check --target both
 python3 -B install.py install --target both
 ```
 
-客户端重新加载 Skill 后使用 `/claudex-bridge`，再按包内[原生接入说明](skills/claudex-bridge/references/native-setup.md)
-和[工作流程](skills/claudex-bridge/references/workflow.md)操作。安装器向两端个人目录复制完整 Skill，
-保护已有修改，部分安装失败会回滚。保留原 `codex-worker`、账户、CC Switch、供应商、全局规则和共用任务状态。
+客户端重新加载 Skill 后，按[原生接入说明](skills/claudex-bridge/references/native-setup.md)绑定会话、
+打开查看窗口。安装保留现有账户、供应商、CC Switch、全局规则和另行安装的
+`codex-worker`。[安装、升级与卸载 →](docs/installation.zh-CN.md)
 
-Doctor 不调用模型。本机启用必须有匹配当前电脑、代码和客户端版本的真实验收证据。
-把仓库复制到另一台电脑不会转移验收结果。`--require-release` 另要求 Windows/macOS 验收，
-目前仍不通过。参见[证据约束](docs/acceptance-evidence.md)。
+## 在三端查看同一会话
 
-[安装、升级、卸载与排障](docs/installation.zh-CN.md) ·
-[实施清单](docs/implementation.md) · [历史接口调查](docs/native-clients.md)
+| Agent | 执行与输入入口 | 实时原生视图 |
+| --- | --- | --- |
+| Codex | 桌面端 | 桌面 · 终端 · VS Code |
+| Claude | 终端 | 终端 · 桌面副本 · VS Code |
 
-## 验证
+每个 Agent 只有一个实际执行入口。其他窗口只读跟随，输入和权限确认留在执行端，
+首次接入需要手动设置。Claude 桌面副本独占配置目录，打开前须正常退出原客户端。
+限定版本的 Codex 终端重连后可能只显示最近历史，实时更新仍会继续。
+[查看窗口的设置与限制 →](docs/native-views.md)
 
-```sh
-CLAUDEX_TEST_NATIVE_TUI=/opt/codex-desktop/resources/codex \
-  python3 -B -m unittest discover -s tests
-```
+## 当前状态与文档
 
-回归测试使用临时项目与协议替身，不调用真实模型。可选的原生 TUI 测试检查客户端如何显示测试数据；
-实际原生验收单独记录。凭据、对话、任务状态、客户端副本和本机验收记录不提交到 Git。
+已验收版本为 `d379c41`：两个方向均完成派工、拒收、原会话修复、追加反馈、重连和停止。
+后续源码整理改变了包指纹，已安装副本仍保留原验收版本。每台电脑、每个包版本都需要
+对应的原生验收。本仓库公开的是 Linux 开发预览源码，Windows 和 macOS 支持仍待完成。
 
-MIT 许可证。每台电脑状态独立，不做跨电脑同步。三平台条件全部通过后再发布 GitHub。
+- [工作流程、命令与恢复](skills/claudex-bridge/references/workflow.md)
+- [验证记录与离线测试命令](docs/native-validation.md)
+- [实施清单](docs/implementation.md)
+
+[MIT 许可证](LICENSE)。每台电脑独立保存任务状态，不做跨电脑同步。

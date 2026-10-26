@@ -1,5 +1,4 @@
 """Offline state invariants using temporary files, never user state or models."""
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -14,11 +13,8 @@ SCRIPTS = Path(__file__).resolve().parents[1] / "skills" / "claudex-bridge" / "s
 sys.path.insert(0, str(SCRIPTS))
 import task_state
 
-worker = None
 if sys.platform == "linux":
-    spec = importlib.util.spec_from_file_location("legacy_worker_for_state_tests", SCRIPTS / "worker.py")
-    worker = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(worker)
+    import fcntl
 
 
 @unittest.skipUnless(sys.platform == "linux", "Shared execution lock is validated on Linux")
@@ -96,25 +92,29 @@ class TaskStateTests(unittest.TestCase):
     def test_state_root_preserves_legacy_environment_precedence(self):
         with mock.patch.dict(os.environ, {"XDG_STATE_HOME": str(self.base / "xdg"),
                                           "CODEX_WORKER_STATE_DIR": str(self.base / "override")}):
-            self.assertEqual(task_state.state_root(), worker.state_root())
             self.assertEqual(task_state.state_root(), self.base / "override")
             del os.environ["CODEX_WORKER_STATE_DIR"]
             self.assertEqual(task_state.state_root(), self.base / "xdg/claude-codex-worker")
-            self.assertEqual(task_state.state_root(), worker.state_root())
 
-    def test_shared_lock_contends_with_legacy_worker_and_keeps_the_same_inode(self):
+    def test_shared_lock_contends_with_legacy_flock_and_keeps_the_same_inode(self):
         lock = self.root / "worker.lock"
         inode = lock.stat().st_ino
-        with self.store.locked({"task_id": "task"}):
-            self.store.bind_executor("task", "executor-session")
-            with self.assertRaisesRegex(RuntimeError, "already monitoring"):
-                with worker.worker_lock(self.root):
-                    self.fail("Legacy worker acquired a competing lock")
-            with self.assertRaisesRegex(RuntimeError, "worker.lock"):
-                task_state.TaskStore(self.root).bind_executor("task", "executor-session")
-        with worker.worker_lock(self.root, {"task_id": "legacy"}):
-            with self.assertRaisesRegex(RuntimeError, "worker.lock"):
+        # The separately installed legacy runner uses a+ and an exclusive,
+        # nonblocking flock on this same path. Exercise that OS-level contract
+        # without loading user-installed code or bundling the retired runner.
+        with lock.open("a+", encoding="utf-8") as legacy_lock:
+            with self.store.locked({"task_id": "task"}):
                 self.store.bind_executor("task", "executor-session")
+                with self.assertRaises(BlockingIOError):
+                    fcntl.flock(legacy_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                with self.assertRaisesRegex(RuntimeError, "worker.lock"):
+                    task_state.TaskStore(self.root).bind_executor("task", "executor-session")
+            fcntl.flock(legacy_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            try:
+                with self.assertRaisesRegex(RuntimeError, "worker.lock"):
+                    self.store.bind_executor("task", "executor-session")
+            finally:
+                fcntl.flock(legacy_lock, fcntl.LOCK_UN)
         self.assertEqual(lock.stat().st_ino, inode)
 
     def test_begin_is_fsynced_unknown_before_a_send_and_survives_a_process_restart(self):
@@ -150,7 +150,7 @@ class TaskStateTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "unresolved"):
             restarted.begin_attempt("replacement", actor=self.initiator)
         with self.assertRaisesRegex(RuntimeError, "unresolved"):
-            worker.assert_no_unresolved(self.root)
+            task_state.assert_no_unresolved(self.root)
         self.assertEqual(restarted.read("task"), before)
 
     def test_legacy_unresolved_and_running_records_block_new_attempts(self):

@@ -289,9 +289,9 @@ current package and client versions. The read-only doctor validates its integrit
 it does not infer success from offline tests. `release_ready` remains false because
 Windows/macOS adapters and actual native acceptance are outstanding. Starting
 from arbitrary native composers and automatic first-time onboarding are also not
-implemented. No GitHub repository was created.
+implemented. No GitHub repository had been created at the time of that native acceptance.
 
-The final run passed **292 tests** in 23.614 seconds, including the optional native
+The accepted build `d379c41` passed **292 tests** in 23.614 seconds, including the optional native
 renderer against fixtures. Skill validation and `git diff --check` also passed.
 Reproduce with:
 
@@ -312,3 +312,18 @@ Claude settings matched their recorded hash. Native client use added one
 restored the exact recorded full-file hash. The setup instructions now isolate
 the TUI viewer's preference directory. No other configuration bytes were restored
 or overwritten. Unrelated VS Code work remained open.
+
+## Source cleanup after acceptance
+
+The subsequent repository cleanup removed the bundled single-direction runner
+and its 11 dedicated tests, plus five one-off local validation scripts. The shared
+native transport, legacy state/lock contract, saved evidence, and recovery hooks
+remain. Both READMEs now include a shared SVG icon and task-first instructions.
+
+The remaining **281 offline tests passed** in 22.089 seconds, including the native
+renderer against fixtures. This cleanup made no live model requests and did not
+renew native acceptance. The Skill package fingerprint changed: the checkout's
+doctor correctly reports `runtime_ready=false` because its receipt is stale.
+Both existing installed copies still report `runtime_ready=true`; their files
+were not updated. Install or update this checkout only after fresh local native
+acceptance. The original live observations above continue to describe `d379c41`.

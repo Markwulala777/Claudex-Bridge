@@ -1,81 +1,84 @@
-# Claudex Bridge
+<p align="center">
+  <img src="assets/readme/icon.svg" width="96" height="96" alt="Claudex-Bridge: interlocking orange and blue C forms representing Claude and Codex collaborating">
+</p>
 
-[简体中文](README.zh-CN.md)
+<h1 align="center">Claudex-Bridge</h1>
 
-Claude and Codex delegate implementation to each other. The initiating main agent
-reviews the actual changes and tests, requests same-session revisions, and reports
-the result. Roles stay fixed throughout a task.
+<p align="center">Claude ↔ Codex · Delegate, review, revise.</p>
+<p align="center"><b>English</b> · <a href="README.zh-CN.md">简体中文</a></p>
 
-**Linux development integration: both directions passed live acceptance on
-2026-10-26.** Windows/macOS are not implemented or validated. Publication remains
-blocked by the agreed three-platform release gate.
+Work through requirements with Claude or Codex, then let the other agent implement
+them. The initiating agent reviews the actual changes and tests, requests revisions
+in the same session, and reports back to you.
 
-## Verified workflow
+> **Linux development preview.** Both directions passed live acceptance on
+> 2026-10-26. This updated checkout needs fresh local acceptance before installation.
+> Windows and macOS are pending. [Evidence and current scope →](docs/native-validation.md#source-cleanup-after-acceptance)
 
-Discuss requirements → dispatch to one executor → implement and test → initiating
-agent reviews → revise in the same session until accepted or blocked. User feedback
-continues the original task and sessions. The initiator must stay active for this loop.
+## One task, a complete loop
 
-Both directions were tested in disposable Git projects with deliberate rejection,
-same-session repair, independent acceptance tests, feedback, interrupted monitoring,
-duplicate-submission protection, native view reconnection and foreground stopping.
-Pre-existing tracked edits and untracked files were preserved. A real Claude quota
-failure remained a failure. See [the evidence and limits](docs/native-validation.md).
+**Discuss → Delegate → Implement & test → Review → Revise or accept**
 
-| Product | Executes and accepts input | Simultaneous native views |
-| --- | --- | --- |
-| Codex | Desktop | Desktop, bundled TUI, official VS Code extension |
-| Claude | Native TUI 2.1.295 | TUI, removable Desktop copy, official VS Code extension |
+Once set up, ask the initiating agent:
 
-Follower composers are read-only. Native permission prompts stay with the owner.
-The installer does not create conversations or automatically attach every window.
-Claude Desktop's copy uses its existing profile exclusively, so the original must
-be closed normally first. This does not yet support chatting interchangeably from
-any frontend. A pinned Codex history-pagination defect can limit a reconnected TUI
-to the owner's loaded recent turns; live updates continue and older history is
-explicitly unavailable, never imported or presented as complete.
+> `/claudex-bridge`
+>
+> Let Codex implement CSV export. Check the actual diff and tests when it finishes.
+> If it fails review, send specific fixes back to the same session.
+> Report the result after it passes, or explain what is blocking it.
 
-Codex executors may delegate independent subtasks and must integrate their work.
-Claude subagents are off by default. Final acceptance belongs to the initiating
-main agent, not the executor. No recursive bridge calls or main-role swapping.
+Use the same flow from Codex to delegate to Claude. Roles stay fixed for the task;
+your later feedback continues the original sessions. The initiator must remain
+active for automatic review and rework. Codex may delegate independent subtasks;
+Claude subagents are off by default.
 
-## Install on a validated Linux computer
+## Start on Linux
 
-Python 3.9+ with Linux pidfd support, Git and the validated native clients are required.
+You need Python 3.9+ with Linux pidfd support, Git, and the
+[validated native clients](docs/native-validation.md). From the repository, check
+compatibility without making model calls:
 
 ```sh
 python3 -B skills/claudex-bridge/scripts/bridge.py doctor --json
+```
+
+Only when `runtime_ready=true`, install the Skill for both agents:
+
+```sh
 python3 -B install.py check --target both
 python3 -B install.py install --target both
 ```
 
-Invoke `/claudex-bridge` after the client reloads its skills, then follow the
-packaged [native setup](skills/claudex-bridge/references/native-setup.md) and
-[workflow](skills/claudex-bridge/references/workflow.md). Installation copies a
-self-contained Skill to both personal Skill directories, protects existing edits,
-and rolls back partial activation. It preserves `codex-worker`, accounts, CC Switch,
-providers, global rules and the shared task state.
+Reload skills in each client, then follow [native setup](skills/claudex-bridge/references/native-setup.md)
+to bind the conversations and open their views. Installation preserves existing
+accounts, providers, CC Switch, global rules, and the separately installed
+`codex-worker`. [Install, update, or uninstall →](docs/installation.md)
 
-Doctor makes no model calls. Local readiness requires actual evidence bound to
-this computer, package and client versions. Copying the repository to a different
-computer does not transfer acceptance. `--require-release` additionally requires
-Windows and macOS; that gate remains false. See [receipt rules](docs/acceptance-evidence.md).
+## Follow the same conversation
 
-[Installation, updates, uninstall and troubleshooting](docs/installation.md) ·
-[Implementation checklist](docs/implementation.md) ·
-[Historical interface findings](docs/native-clients.md)
+| Agent | Execution and input | Live native views |
+| --- | --- | --- |
+| Codex | Desktop | Desktop · Terminal · VS Code |
+| Claude | Terminal | Terminal · Desktop copy · VS Code |
 
-## Verification
+Each agent has one execution owner. Other windows are read-only followers; input
+and permission prompts stay with the owner. First attachment is a manual setup
+step. The Claude Desktop copy needs exclusive use of its profile: quit the normal
+client first. Codex terminal reconnection can show only recent history on the
+pinned client version; live updates continue. [View setup and limits →](docs/native-views.md)
 
-```sh
-CLAUDEX_TEST_NATIVE_TUI=/opt/codex-desktop/resources/codex \
-  python3 -B -m unittest discover -s tests
-```
+## Status and documentation
 
-The suite uses temporary projects and protocol fixtures, not live model calls.
-The optional native-binary test exercises its renderer against fixtures. Actual
-native acceptance is recorded separately. Credentials, transcripts, task state,
-prepared client copies and local acceptance receipts are excluded from Git.
+The tested build is `d379c41`: both directions completed dispatch, rejected review,
+same-session repair, user feedback, reconnection, and stopping. The subsequent
+source cleanup changes the package fingerprint; existing installed copies retain
+their accepted version. Each computer and package version needs its own native
+acceptance. This public source is a Linux development preview; Windows and macOS
+support remains pending.
 
-MIT licensed. Each computer has independent state; cross-computer synchronization
-is outside the scope. GitHub publication awaits all three platform gates.
+- [Workflow commands and recovery](skills/claudex-bridge/references/workflow.md)
+- [Validation record and offline test command](docs/native-validation.md)
+- [Implementation checklist](docs/implementation.md)
+
+[MIT license](LICENSE). Each computer keeps its own task state; cross-computer
+synchronization is outside the scope.

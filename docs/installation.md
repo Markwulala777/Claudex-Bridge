@@ -6,6 +6,12 @@ This is a version-pinned Linux development integration. Windows/macOS execution
 is not implemented or validated. Each computer needs its own native acceptance;
 do not copy accounts, task state, or an acceptance receipt from another computer.
 
+The native acceptance record covers build `d379c41`. This checkout subsequently
+removed the bundled legacy entrypoint and updated the Skill instructions, so its
+package fingerprint has changed. It requires fresh local native acceptance before
+installation or update; offline tests do not renew the receipt. Existing installed
+copies retain their tested files and receipt.
+
 Use Python 3.9+ with Linux pidfd support, Git, VS Code, and the native versions in
 [the validation record](native-validation.md). Keep the existing authenticated
 clients and provider settings. Run from this repository:

@@ -3,7 +3,7 @@ name: claudex-bridge
 description: Claude 与 Codex 双向派工、验收和同会话返工。用户说“让 Claude/Codex 干活”“用 claudex-bridge”时使用。先核验本机兼容性与验收记录；支持已验证的 Linux 原生终端、桌面和官方 VS Code 同步查看。
 ---
 
-# Claudex Bridge
+# Claudex-Bridge
 
 限定版本的 Linux 双向闭环已实测通过，Windows/macOS 尚未实现并验收。
 当前执行入口是 Codex Desktop 与 Claude 原生 TUI；其他原生窗口同步只读查看，
@@ -25,7 +25,8 @@ python3 <skill-directory>/scripts/bridge.py doctor --json
 诊断不启动模型，也不影响已安装的 `codex-worker`。
 
 本机完整验收通过后可以启用 Linux 开发版；`release_ready` 和
-`doctor --require-release` 单独约束三平台验收与 GitHub 发布。不要用本机通过
+`doctor --require-release` 单独约束三平台验收与正式发布。源码可作为 Linux 开发预览公开，
+不代表本机安装条件或三平台验收已通过。不要用本机通过
 推断其他平台支持。验收记录必须匹配本机、客户端版本和当前实现，不能手写
 “通过”来开启缺失功能。查看器只负责显示；原生适配器执行任务，发起方负责验收。
 
@@ -59,7 +60,7 @@ python3 <skill-directory>/scripts/bridge.py doctor --json
 断线只接回保存的原轮次，不能重发来猜测是否成功。最终汇报完成内容、验收结论、
 测试结果及确实存在的遗留问题。自动验收依赖发起方会话仍在运行。
 
-不修改供应商、登录、CC Switch、全局或项目规则。当前复用的 `worker.py` /
-`desktop_bridge.py` 只覆盖旧的 Linux Claude → Codex 桌面方向，不能用于宣称
-新 Skill 的完整双向能力。新的 `workflow.py` 使用同一状态根和同一 `worker.lock`，
+不修改供应商、登录、CC Switch、全局或项目规则。统一入口是 `bridge.py`；
+`desktop_bridge.py` 是 Codex 原生通信模块，不是独立的派工入口。
+`workflow.py` 与另行安装的旧 `codex-worker` 共用状态根和 `worker.lock`，
 验收绑定需求、执行轮次、最终文件快照及实际测试结果。不要新建状态目录绕过单任务锁。

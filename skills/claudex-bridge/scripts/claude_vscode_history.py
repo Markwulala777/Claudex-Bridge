@@ -36,11 +36,11 @@ WEBVIEW_PEER_CONTENT_ANCHOR = 'A=K.map((y)=>V?zD0(Z,y.content):G$(y.content))'
 _WEBVIEW_HELPER = """const __claudexBridgePeerFrames=new WeakSet,__claudexBridgePeerRows=new WeakSet;
 function __claudexBridgeReplayCheck(model,frame,sessionId){
 if(typeof frame?.uuid!=="string")return null;
-if(frame.session_id!==sessionId)throw Error("Claudex Bridge stopped this viewer: an event has a different session identity.");
+if(frame.session_id!==sessionId)throw Error("Claudex-Bridge stopped this viewer: an event has a different session identity.");
 const canonical=value=>value===null||typeof value!=="object"?JSON.stringify(value):Array.isArray(value)?"["+value.map(canonical).join(",")+"]":"{"+Object.keys(value).sort().map(key=>JSON.stringify(key)+":"+canonical(value[key])).join(",")+"}";
 const signature=canonical(frame),frames=model.__claudexBridgeReplayFrames??=new Map;
 if(frames.has(frame.uuid)){
-if(frames.get(frame.uuid)!==signature)throw Error("Claudex Bridge stopped this viewer: an existing event UUID changed. Recreate the view from a verified source.");
+if(frames.get(frame.uuid)!==signature)throw Error("Claudex-Bridge stopped this viewer: an existing event UUID changed. Recreate the view from a verified source.");
 if(frame.type==="system"&&["init","status","task_started","task_progress","task_notification","task_updated","background_tasks_changed"].includes(frame.subtype)||["result","auth_status","rate_limit_event","command_lifecycle","prompt_suggestion","tool_progress","tool_use_summary"].includes(frame.type))return null;
 return false;
 }

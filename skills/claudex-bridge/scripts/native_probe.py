@@ -410,12 +410,12 @@ def report(home=None, platform=None, env=None):
     if not acceptance["verified"]:
         runtime_blockers.append({"code": "local_acceptance", "reason": acceptance["reason"],
                                  "next": "Record both complete native acceptance directions for this host and exact installation."})
-    # Cross-platform publication is a separate gate. Local Linux receipts cannot
+    # Cross-platform release is a separate gate. Local Linux receipts cannot
     # claim Windows/macOS validation; no speculative cross-platform receipt
     # protocol is implemented here.
     platform_blockers = [{"code": "platform_validation", "platforms": ["win32", "darwin"],
                           "reason": "Real Windows and macOS native workflow acceptance remains unverified.",
-                          "next": "Validate both target OS implementations before publication."}]
+                          "next": "Validate both target OS implementations before a cross-platform release."}]
     runtime_ready = not runtime_blockers
     release_ready = runtime_ready and not platform_blockers
     return {
@@ -424,7 +424,7 @@ def report(home=None, platform=None, env=None):
         "mode": "read_only_no_model_calls",
         "components": components, "observations": observations,
         # Retain the combined field for old report consumers while exposing the
-        # two scopes explicitly to runtime and publication callers.
+        # two scopes explicitly to runtime and release callers.
         "blockers": runtime_blockers + platform_blockers,
         "runtime_blockers": runtime_blockers, "platform_blockers": platform_blockers,
         "implementation_capabilities": capabilities,

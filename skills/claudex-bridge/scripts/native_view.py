@@ -147,7 +147,7 @@ def load(directory):
     directory = Path(directory).expanduser().resolve()
     metadata = read_object(directory / "view.json")
     if metadata.get("schema") != SCHEMA or metadata.get("kind") != KIND:
-        raise ViewError("This is not a prepared Claudex Bridge native view")
+        raise ViewError("This is not a prepared Claudex-Bridge native view")
     session_id = metadata.get("session_id")
     try:
         if str(uuid.UUID(session_id)) != session_id:
