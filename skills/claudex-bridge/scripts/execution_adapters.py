@@ -8,9 +8,9 @@ class AdapterError(RuntimeError):
 
 
 class ClaudeWorkflowOwner:
-    def __init__(self, session_id, owner_state_dir):
+    def __init__(self, session_id, owner_state_dir, *, expected_project=None):
         from claude_owner import OwnerController
-        self.controller = OwnerController(owner_state_dir)
+        self.controller = OwnerController(owner_state_dir, expected_project=expected_project)
         self.session_id = session_id
         if self.controller.binding["session_id"] != session_id:
             raise AdapterError("Claude owner binding belongs to another executor")
@@ -77,6 +77,9 @@ def factory(task, transport, attempt_directory):
         raise AdapterError("Transport does not match the fixed executor product")
     if set(transport) != {"kind", key} or not isinstance(transport[key], str) or not Path(transport[key]).is_absolute():
         raise AdapterError("Use an exact absolute native owner binding; extra transport options are unsupported")
+    project = task.get("project")
+    if not isinstance(project, str) or not Path(project).is_absolute() or not Path(project).is_dir():
+        raise AdapterError("Workflow requires an existing absolute task project")
     if product == "codex":
-        return owner(session_id, transport[key], attempt_directory)
-    return owner(session_id, transport[key])
+        return owner(session_id, transport[key], attempt_directory, expected_project=project)
+    return owner(session_id, transport[key], expected_project=project)

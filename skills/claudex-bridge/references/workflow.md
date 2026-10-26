@@ -70,6 +70,10 @@ acceptance rather than silently dropping files.
 
 Dispatch persists a unique client message ID and `unresolved:true` before sending.
 A timeout, interruption or lost acknowledgment never permits resubmission.
+The native adapter also verifies the executor working directory against the fixed
+task project, including immediately before sending. Claude uses its live owner
+process directory; Codex uses the native Desktop snapshot. A missing or different
+directory blocks dispatch without sending a prompt.
 
 ```sh
 python3 <skill>/scripts/bridge.py task-watch --task TASK_ID --wait 45

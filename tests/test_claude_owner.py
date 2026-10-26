@@ -118,6 +118,32 @@ class OwnerTests(unittest.TestCase):
         with self.assertRaises(socket.timeout):
             self.native.accept()
 
+    def test_wrong_native_project_is_rejected_before_request_or_socket_send(self):
+        with owner.OwnerController(self.state, registry_dir=self.registry,
+                                   expected_project=self.root) as controller:
+            with self.assertRaisesRegex(owner.OwnerError, "working directory"):
+                controller.preflight()
+            with self.assertRaisesRegex(owner.OwnerError, "working directory"):
+                controller.submit("must stay in the bound project", str(uuid.uuid4()))
+        self.assertEqual(list((self.state / "requests").iterdir()), [])
+        with self.assertRaises(socket.timeout):
+            self.native.accept()
+
+    def test_project_is_rechecked_after_controller_preflight(self):
+        original = Path.cwd()
+        with owner.OwnerController(self.state, registry_dir=self.registry,
+                                   expected_project=original) as controller:
+            controller._open()
+            try:
+                os.chdir(self.root)
+                with self.assertRaisesRegex(owner.OwnerError, "working directory"):
+                    controller.submit("must not follow a changed cwd", str(uuid.uuid4()))
+            finally:
+                os.chdir(original)
+        self.assertEqual(list((self.state / "requests").iterdir()), [])
+        with self.assertRaises(socket.timeout):
+            self.native.accept()
+
     def test_peer_credentials_checked_before_any_prompt_byte(self):
         controller = self.controller()
         with mock.patch.object(owner, "_peer", side_effect=owner.OwnerError("fixture wrong peer")):

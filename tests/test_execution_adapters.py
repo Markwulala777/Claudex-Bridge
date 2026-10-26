@@ -1,6 +1,7 @@
 import argparse
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 from unittest import mock
 
@@ -55,6 +56,20 @@ class ClaudeNormalizationTests(unittest.TestCase):
                           {"kind": "claude-native", "owner_state_dir": "/fixture", "auto_login": True}):
             with self.assertRaises(adapters.AdapterError):
                 adapters.factory(task, transport, "/unused/attempt")
+
+    def test_native_factories_require_and_forward_the_fixed_project(self):
+        with tempfile.TemporaryDirectory() as project:
+            task = {"project": project, "executor": {"product": "claude", "session_id": "fixed-session"}}
+            adapters.factory(task, {"kind": "claude-native", "owner_state_dir": "/fixture"}, "/unused/attempt")
+            import claude_owner
+            claude_owner.OwnerController.assert_called_with("/fixture", expected_project=project)
+            task["executor"]["product"] = "codex"
+            with mock.patch("codex_owner.CodexOwner") as codex:
+                adapters.factory(task, {"kind": "codex-desktop", "rollout_path": "/fixture"}, "/unused/attempt")
+                codex.assert_called_with("fixed-session", "/fixture", "/unused/attempt", expected_project=project)
+            del task["project"]
+            with self.assertRaisesRegex(adapters.AdapterError, "task project"):
+                adapters.factory(task, {"kind": "codex-desktop", "rollout_path": "/fixture"}, "/unused/attempt")
 
 
 class CLIGateTests(unittest.TestCase):

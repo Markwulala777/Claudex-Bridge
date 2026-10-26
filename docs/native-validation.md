@@ -133,8 +133,12 @@ token. That status alone therefore did not establish a Claude subscription login
 The same read-only check with `--setting-sources project,local` reported
 `loggedIn: false` and `authMethod: none`.
 
-The official `auth login --claudeai` flow was opened. The browser required account
-sign-in, so it was handed to the user. No new model request, provider setting
+The user completed the official browser authorization, but the original CLI wait
+process had already exited without saving the login. A replacement official login
+process was kept open. The browser showed the signed-in account, but its subsequent
+Claude Code authorization attempts returned the site's browser-verification error.
+The exact pending authorization page was handed back for manual completion. The
+CLI still reported no subscription login. No new model request, provider setting
 change, or successful account-based execution is recorded yet. Fresh task-local
 hooks for the exact saved conversation passed the native CLI's plugin validator;
 the prior failed request remains a recorded failure and will not be resent.
@@ -145,6 +149,14 @@ owner launch excludes user settings only for that process and explicitly chooses
 `sonnet`; the original user settings stay on disk. Excluding user settings also
 omits their permissions/hooks, so this is a development launch choice, not the
 production skill's automatic authentication policy.
+
+While waiting, native dispatch was bound to the fixed task project as well as the
+session ID. Claude checks the live owner process's working directory, and Codex
+checks the Desktop snapshot's `cwd` (observed in the actual installed protocol).
+Both recheck before sending. Regression tests verify that a wrong/missing project
+and a directory change after preflight create no native prompt or owner submission
+record. These
+checks do not establish a successful native model turn.
 
 ## Next executable checks
 
@@ -164,7 +176,7 @@ TUI test consumes fixtures and makes no model calls. `doctor` remains read-only
 and reports `runtime_ready: false` and `release_ready: false`; passing component
 checks does not open either gate. See [receipt semantics](acceptance-evidence.md).
 
-The combined run after these changes passed **264 tests**, including the real TUI consuming
+The combined run after these changes passed **269 tests**, including the real TUI consuming
 offline protocol fixtures:
 
 ```sh

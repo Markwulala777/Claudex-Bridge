@@ -211,6 +211,22 @@ def _revalidate(owner, proc_root="/proc"):
     return current
 
 
+def _check_project(owner, expected_project, proc_root="/proc"):
+    """Bind dispatch to the native process's actual working directory."""
+    if expected_project is None:
+        return
+    expected = Path(expected_project)
+    if not expected.is_absolute() or not expected.is_dir():
+        raise OwnerError("Expected project must be an existing absolute directory")
+    try:
+        actual = (Path(proc_root) / str(owner.pid) / "cwd").resolve(strict=True)
+    except OSError as exc:
+        raise OwnerError("Native owner working directory is unavailable") from exc
+    _revalidate(owner, proc_root)
+    if actual != expected.resolve():
+        raise OwnerError("Native owner working directory does not match the task project")
+
+
 def _peer(connection, owner):
     pid, uid, _gid = struct.unpack("3i", connection.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, 12))
     if pid != owner.pid or uid != owner.uid:
@@ -457,7 +473,8 @@ def view_state(private_dir, session_id):
 
 
 def submit(private_dir, text, *, owner=None, request_id=None, timeout=30.0,
-           registry_dir=None, proc_root="/proc", socket_factory=socket.socket, transport=None):
+           registry_dir=None, proc_root="/proc", socket_factory=socket.socket, transport=None,
+           expected_project=None):
     """Send once and collect receipts while waiting; timeout never causes a resend.
 
     Keep this call alive to receive permission receipts. observe() can still read
@@ -484,6 +501,7 @@ def submit(private_dir, text, *, owner=None, request_id=None, timeout=30.0,
         owner = _revalidate(owner, proc_root)
         if owner.session_id != binding["session_id"] or owner.status != "idle":
             raise OwnerError("Exact native owner must be idle before dispatch")
+        _check_project(owner, expected_project, proc_root)
         marker = "[claudex-request:" + request_id + "]"
         request = {"schema": 1, "session_id": binding["session_id"], "launch_id": binding["launch_id"],
                    "instance_id": ready["instance_id"], "request_id": request_id,
@@ -511,6 +529,7 @@ def submit(private_dir, text, *, owner=None, request_id=None, timeout=30.0,
                 connection.connect(owner.socket_path)
                 _peer(connection, owner)
                 _revalidate(owner, proc_root)
+                _check_project(owner, expected_project, proc_root)
                 # Persist ambiguity before sendall: any failure may be partial delivery.
                 request["dispatch_status"] = "sending_unknown"
                 _write(path, request)
@@ -540,11 +559,13 @@ class OwnerController:
     immediately; observe drains late native permission receipts before reporting
     hook events. Exiting only closes our reply socket, never the Claude owner.
     """
-    def __init__(self, private_dir, *, registry_dir=None, proc_root="/proc", socket_factory=socket.socket):
+    def __init__(self, private_dir, *, registry_dir=None, proc_root="/proc", socket_factory=socket.socket,
+                 expected_project=None):
         self.root, self.binding = _binding(private_dir)
         self.registry_dir = registry_dir
         self.proc_root = proc_root
         self.socket_factory = socket_factory
+        self.expected_project = expected_project
         self.owner = None
         self.listener = None
         self.reply_path = None
@@ -574,6 +595,7 @@ class OwnerController:
             _revalidate(self.owner, self.proc_root)
         if owner.status != "idle":
             raise OwnerError("Exact owner is not idle: " + owner.status)
+        _check_project(owner, self.expected_project, self.proc_root)
         self.owner = owner
         return asdict(owner)
 
@@ -596,7 +618,8 @@ class OwnerController:
         self._open()
         return submit(self.root, text, owner=self.owner, request_id=client_message_id, timeout=0,
                       registry_dir=self.registry_dir, proc_root=self.proc_root,
-                      socket_factory=self.socket_factory, transport=self)
+                      socket_factory=self.socket_factory, transport=self,
+                      expected_project=self.expected_project)
 
     def observe(self, client_message_id, execution_id=None):
         request = _json(self.root / "requests" / (_uuid(client_message_id) + ".json"))

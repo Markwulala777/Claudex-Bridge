@@ -146,6 +146,28 @@ class CodexOwnerTests(unittest.TestCase):
                 self.assertFalse(self.directory.exists())
                 self.assertEqual(self.desktop.starts, [])
 
+    def test_missing_or_different_desktop_project_never_dispatches(self):
+        for cwd in (None, "relative-project", str(self.home)):
+            with self.subTest(cwd=cwd):
+                self.desktop.state["cwd"] = cwd
+                with self.assertRaisesRegex(owner.OwnerError, "working directory"):
+                    with owner.CodexOwner(self.SESSION, self.rollout, self.directory,
+                                          expected_project=self.base):
+                        self.fail("Wrong project entered")
+                self.assertFalse(self.directory.exists())
+                self.assertEqual(self.desktop.starts, [])
+
+    def test_project_change_after_preflight_blocks_send_without_reservation(self):
+        self.desktop.state["cwd"] = str(self.base)
+        with owner.CodexOwner(self.SESSION, self.rollout, self.directory,
+                              expected_project=self.base) as adapter:
+            self.assertTrue(adapter.preflight()["ready"])
+            self.desktop.state["cwd"] = str(self.home)
+            with self.assertRaisesRegex(owner.OwnerError, "working directory"):
+                adapter.submit("must not use a different project", self.CLIENT)
+        self.assertFalse(self.directory.exists())
+        self.assertEqual(self.desktop.starts, [])
+
     def test_version_or_wrong_rollout_refused_before_connect_and_directory_creation(self):
         self.verify.side_effect = owner.BridgeError("Unsupported installed IPC version")
         with self.assertRaisesRegex(owner.BridgeError, "Unsupported"):

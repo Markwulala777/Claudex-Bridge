@@ -159,7 +159,7 @@ class _DeferredLog:
 
 
 class CodexOwner:
-    def __init__(self, session_id, rollout_path, directory):
+    def __init__(self, session_id, rollout_path, directory, *, expected_project=None):
         try:
             canonical = str(uuid.UUID(session_id))
         except (ValueError, AttributeError, TypeError) as exc:
@@ -167,6 +167,12 @@ class CodexOwner:
         if canonical != session_id:
             raise OwnerError("Session UUID must use canonical lowercase spelling")
         self.session_id = canonical
+        self.expected_project = None
+        if expected_project is not None:
+            project = Path(expected_project)
+            if not project.is_absolute() or not project.is_dir():
+                raise OwnerError("Expected project must be an existing absolute directory")
+            self.expected_project = project.resolve()
         self.rollout_path = validate_rollout(rollout_path)
         self.directory = Path(directory).expanduser().resolve()
         self._state_path = self.directory / "codex-owner.json"
@@ -294,6 +300,11 @@ class CodexOwner:
     def _check_snapshot(self, state):
         if not isinstance(state, dict) or state.get("id") != self.session_id:
             raise OwnerError("Desktop snapshot belongs to a different session")
+        if self.expected_project is not None:
+            cwd = state.get("cwd")
+            if (not isinstance(cwd, str) or not Path(cwd).is_absolute() or
+                    Path(cwd).resolve() != self.expected_project):
+                raise OwnerError("Desktop owner working directory does not match the task project")
         if not isinstance(state.get("turns", []), list) or not isinstance(state.get("requests", []), list):
             raise OwnerError("Unsupported Desktop snapshot shape")
         values = turns(state)

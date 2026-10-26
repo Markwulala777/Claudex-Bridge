@@ -32,8 +32,8 @@ They are not the finished bidirectional, three-surface runner. Keep the installe
 provide the new Linux development workflow. Normal CLI dispatch remains
 acceptance-gated. Command/evidence semantics are maintained in
 `skills/claudex-bridge/references/workflow.md`. Claude Desktop history and one live
-provider-failure path were observed on 2026-10-26; successful native loops are
-still blocked by provider quota and unverified native scenarios.
+provider-failure path were observed on 2026-10-26; successful native loops still
+await Claude account authorization and the remaining native scenarios.
 
 ## Validation
 
